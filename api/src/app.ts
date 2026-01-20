@@ -8,6 +8,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./routes/authRoutes";
 import { movieRoutes } from "./routes/movieRoutes";
 import { userRoutes } from "./routes/userRoutes";
+import { categoryRoutes } from "./routes/categoryRoutes";
 
 export function createApp() {
   const app = express();
@@ -35,6 +36,7 @@ export function createApp() {
   app.use("/auth", authLimiter, authRoutes);
   app.use("/movies", movieRoutes);
   app.use("/user", userRoutes);
+  app.use("/categories", categoryRoutes);
 
   app.use(errorHandler);
   return app;
