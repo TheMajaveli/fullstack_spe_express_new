@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: movies_db_test
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Run migrations
+      env:
+        DB_HOST: localhost
+        DB_USER: test_user
+        DB_PASSWORD: test_password
+        DB_NAME: movies_db_test
+        DB_PORT: 3306
+        JWT_SECRET: test-secret
+        JWT_REFRESH_SECRET: test-refresh-secret
+        JWT_EXPIRES_IN: 15m
+        JWT_REFRESH_EXPIRES_IN: 7d
+      run: |
+        cd backend
+        node config/migrations/create_movies_db.js
+        node config/migrations/create_auth_tables.js
+
+    - name: Run tests
+      env:
+        DB_HOST: localhost
+        DB_USER: test_user
+        DB_PASSWORD: test_password
+        DB_NAME: movies_db_test
+        DB_PORT: 3306
+        JWT_SECRET: test-secret
+        JWT_REFRESH_SECRET: test-refresh-secret
+        JWT_EXPIRES_IN: 15m
+        JWT_REFRESH_EXPIRES_IN: 7d
+      run: |
+        cd backend
+        npm test
+
+    - name: Generate coverage report
+      if: always()
+      run: |
+        cd backend
+        npm run test:coverage
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Run linter
+      run: |
+        # Ajouter un linter si nécessaire (ESLint)
+        echo "Linting checks would go here"
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Build check
+      run: |
+        echo "Build verification would go here"
+        # Vérifier que le projet se build correctement
+
