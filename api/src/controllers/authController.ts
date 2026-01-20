@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { register, login, refresh, logout } from "../services/authService";
 import type { AuthedRequest } from "../middlewares/authenticate";
+import { getUserProfile } from "../services/userService";
 
 export async function registerController(req: Request, res: Response, next: NextFunction) {
   try {
@@ -43,17 +44,7 @@ export async function logoutController(req: Request, res: Response, next: NextFu
 }
 
 export async function meController(req: AuthedRequest, res: Response) {
-  return res.json({
-    success: true,
-    data: {
-      id: req.auth!.userId,
-      email: req.auth!.email,
-      username: req.auth!.username,
-      role: req.auth!.role === "ADMIN" ? "admin" : "user",
-      watchlist: [],
-      history: [],
-      ratings: {},
-    },
-  });
+  const profile = await getUserProfile(req.auth!.userId);
+  return res.json({ success: true, data: profile });
 }
 
