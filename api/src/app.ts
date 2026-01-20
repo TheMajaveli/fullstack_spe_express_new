@@ -6,6 +6,7 @@ import path from "path";
 
 import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./routes/authRoutes";
+import { movieRoutes } from "./routes/movieRoutes";
 
 export function createApp() {
   const app = express();
@@ -31,8 +32,7 @@ export function createApp() {
   });
 
   app.use("/auth", authLimiter, authRoutes);
-  // Movies routes wired in next milestone
-  app.use("/movies", (_req, res) => res.status(501).json({ message: "Not implemented" }));
+  app.use("/movies", movieRoutes);
 
   app.use(errorHandler);
   return app;
