@@ -1,0 +1,5 @@
+{
+  "name": "CineNoir - Premium Movie Catalog",
+  "description": "A high-end, monochrome movie catalog application featuring advanced filtering, user accounts, watchlist management, and an administrative dashboard.",
+  "requestFramePermissions": []
+}
