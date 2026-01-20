@@ -79,3 +79,106 @@ export async function getMovie(id: string) {
   return toFrontendMovie(row);
 }
 
+export async function createMovie(input: {
+  title: string;
+  description: string;
+  year: number;
+  duration: string;
+  director: string;
+  category?: string;
+  posterUrl?: string;
+}) {
+  const releaseDate = new Date(`${input.year}-01-01T00:00:00.000Z`);
+
+  let categoryConnect:
+    | { create: { category: { connectOrCreate: { where: { name: string }; create: { name: string } } } } }
+    | undefined;
+
+  if (input.category && input.category !== "All") {
+    categoryConnect = {
+      create: {
+        category: {
+          connectOrCreate: {
+            where: { name: input.category },
+            create: { name: input.category },
+          },
+        },
+      },
+    };
+  }
+
+  const movie = await prisma.movie.create({
+    data: {
+      title: input.title,
+      description: input.description,
+      year: input.year,
+      releaseDate,
+      duration: input.duration,
+      director: input.director,
+      posterUrl: input.posterUrl || "",
+      categories: categoryConnect,
+    },
+    include: { categories: { include: { category: true } } },
+  });
+
+  return toFrontendMovie(movie);
+}
+
+export async function updateMovie(
+  id: string,
+  input: Partial<{
+    title: string;
+    description: string;
+    year: number;
+    duration: string;
+    director: string;
+    category: string;
+    posterUrl: string;
+  }>
+) {
+  const existing = await prisma.movie.findUnique({ where: { id } });
+  if (!existing) throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
+
+  const releaseDate = input.year ? new Date(`${input.year}-01-01T00:00:00.000Z`) : undefined;
+
+  // If category provided, replace category links with single category
+  const categories =
+    input.category && input.category !== "All"
+      ? {
+          deleteMany: {},
+          create: {
+            category: {
+              connectOrCreate: {
+                where: { name: input.category },
+                create: { name: input.category },
+              },
+            },
+          },
+        }
+      : undefined;
+
+  const movie = await prisma.movie.update({
+    where: { id },
+    data: {
+      title: input.title,
+      description: input.description,
+      year: input.year,
+      releaseDate,
+      duration: input.duration,
+      director: input.director,
+      posterUrl: input.posterUrl,
+      categories,
+    },
+    include: { categories: { include: { category: true } } },
+  });
+
+  return toFrontendMovie(movie);
+}
+
+export async function deleteMovie(id: string) {
+  await prisma.movie.delete({ where: { id } }).catch(() => {
+    throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
+  });
+  return { ok: true };
+}
+
