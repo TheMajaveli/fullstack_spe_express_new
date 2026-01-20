@@ -1,0 +1,32 @@
+node_modules/
+.pnpm-store/
+.turbo/
+.cache/
+.env
+.env.local
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Uploads
+backend/uploads/
+!backend/uploads/.gitkeep
+uploads/
+!uploads/.gitkeep
+
+# API (TypeScript build output)
+api/dist/
+api/node_modules/
+api/uploads/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Vite / React
+frontend/node_modules/
+frontend/dist/
+
