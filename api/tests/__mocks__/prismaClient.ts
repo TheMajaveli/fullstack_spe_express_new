@@ -37,5 +37,9 @@ export const prismaMock = {
     findMany: jest.fn(),
     upsert: jest.fn(),
   },
+  movieCategory: {
+    create: jest.fn(),
+    deleteMany: jest.fn(),
+  },
 };
 
