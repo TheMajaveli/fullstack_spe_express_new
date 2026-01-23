@@ -29,3 +29,6 @@ frontend/.env.local
 # Vite / React
 frontend/node_modules/
 frontend/dist/
+
+# Documentation
+*.md
