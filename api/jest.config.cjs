@@ -9,7 +9,6 @@ module.exports = {
     "src/**/*.ts",
     "!src/**/*.d.ts",
     "!src/server.ts",
-    "!src/prisma/**",
   ],
   coverageDirectory: "coverage",
   coverageReporters: ["text", "lcov", "html"],

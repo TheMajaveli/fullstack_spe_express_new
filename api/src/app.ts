@@ -9,6 +9,7 @@ import { authRoutes } from "./routes/authRoutes";
 import { movieRoutes } from "./routes/movieRoutes";
 import { userRoutes } from "./routes/userRoutes";
 import { categoryRoutes } from "./routes/categoryRoutes";
+import { adminRoutes } from "./routes/adminRoutes";
 
 export function createApp() {
   const app = express();
@@ -37,6 +38,7 @@ export function createApp() {
   app.use("/movies", movieRoutes);
   app.use("/user", userRoutes);
   app.use("/categories", categoryRoutes);
+  app.use("/admin", adminRoutes);
 
   app.use(errorHandler);
   return app;
