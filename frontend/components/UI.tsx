@@ -74,14 +74,14 @@ export const Input: React.FC<InputProps> = ({ label, error, icon, className = ''
 };
 
 // --- BADGE ---
-export const Badge: React.FC<{ children: React.ReactNode; variant?: 'default' | 'outline' | 'accent' }> = ({ children, variant = 'default' }) => {
+export const Badge: React.FC<{ children: React.ReactNode; variant?: 'default' | 'outline' | 'accent'; className?: string }> = ({ children, variant = 'default', className = '' }) => {
   const styles = {
     default: "bg-zinc-800 text-zinc-300",
     outline: "border border-zinc-700 text-zinc-400",
     accent: "bg-accent/10 text-accent border border-accent/20",
   };
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest ${styles[variant]}`}>
+    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest inline-flex items-center ${styles[variant]} ${className}`}>
       {children}
     </span>
   );
@@ -93,12 +93,8 @@ export const Skeleton: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 // --- TOAST ---
-export const useToast = () => {
-  // Simplified toast logic - usually used with context or library
-  return (message: string, type: 'success' | 'error' = 'success') => {
-    alert(`${type.toUpperCase()}: ${message}`);
-  };
-};
+// Re-export from Toast.tsx for backward compatibility
+export { useToast } from './Toast';
 
 // --- CARD ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
