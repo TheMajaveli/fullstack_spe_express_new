@@ -1,14 +1,14 @@
 import request from "supertest";
 import { createApp } from "../src/app";
+import { dbMock } from "./__mocks__/mysqlClient";
 
-jest.mock("../src/prisma/client", () => {
-  const { prismaMock } = require("./__mocks__/prismaClient");
-  return { prisma: prismaMock };
+jest.mock("../src/database/connection", () => {
+  const { dbMock } = require("./__mocks__/mysqlClient");
+  return { db: dbMock };
 });
 
 describe("auth", () => {
   const app = createApp();
-  const { prisma } = require("../src/prisma/client");
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -17,9 +17,17 @@ describe("auth", () => {
   });
 
   test("POST /auth/register returns tokens + user", async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockResolvedValue({ id: "u1", email: "a@b.com", username: "alice", role: "USER" });
-    prisma.refreshToken.create.mockResolvedValue({ id: "rt1" });
+    // Mock: check if user exists (returns empty array)
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    // Mock: insert user
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: get user after insert
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "a@b.com", username: "alice", role: "USER" }],
+      [],
+    ]);
+    // Mock: insert refresh token
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     const res = await request(app)
       .post("/auth/register")
@@ -33,14 +41,14 @@ describe("auth", () => {
   });
 
   test("POST /auth/login returns tokens + user", async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      email: "a@b.com",
-      username: "alice",
-      role: "USER",
-      passwordHash: await require("bcrypt").hash("Password1", 1),
-    });
-    prisma.refreshToken.create.mockResolvedValue({ id: "rt1" });
+    const passwordHash = await require("bcrypt").hash("Password1", 1);
+    // Mock: find user
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "a@b.com", username: "alice", role: "USER", passwordHash }],
+      [],
+    ]);
+    // Mock: insert refresh token
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     const res = await request(app).post("/auth/login").send({ email: "a@b.com", password: "Password1" });
     expect(res.status).toBe(200);
@@ -51,7 +59,8 @@ describe("auth", () => {
   });
 
   test("POST /auth/register rejects duplicate email", async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: "existing", email: "a@b.com" });
+    // Mock: user already exists
+    dbMock.execute.mockResolvedValueOnce([[{ id: "existing", email: "a@b.com" }], []]);
 
     const res = await request(app)
       .post("/auth/register")
@@ -63,7 +72,8 @@ describe("auth", () => {
   });
 
   test("POST /auth/login rejects invalid credentials", async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
+    // Mock: user not found
+    dbMock.execute.mockResolvedValueOnce([[], []]);
 
     const res = await request(app).post("/auth/login").send({ email: "a@b.com", password: "WrongPass" });
 
@@ -76,13 +86,21 @@ describe("auth", () => {
     const refreshToken = "valid-refresh-token";
     const tokenHash = require("crypto").createHash("sha256").update(refreshToken).digest("hex");
 
-    prisma.refreshToken.findUnique.mockResolvedValue({
-      id: "rt1",
-      tokenHash,
-      userId: "u1",
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      user: { id: "u1", email: "a@b.com", username: "alice", role: "USER" },
-    });
+    // Mock: find refresh token with user
+    dbMock.execute.mockResolvedValueOnce([
+      [
+        {
+          id: "rt1",
+          tokenHash,
+          userId: "u1",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          email: "a@b.com",
+          username: "alice",
+          role: "USER",
+        },
+      ],
+      [],
+    ]);
 
     const res = await request(app).post("/auth/refresh").send({ refreshToken });
 
@@ -95,14 +113,23 @@ describe("auth", () => {
     const refreshToken = "expired-token";
     const tokenHash = require("crypto").createHash("sha256").update(refreshToken).digest("hex");
 
-    prisma.refreshToken.findUnique.mockResolvedValue({
-      id: "rt1",
-      tokenHash,
-      userId: "u1",
-      expiresAt: new Date(Date.now() - 1000), // Expired
-      user: { id: "u1", email: "a@b.com", username: "alice", role: "USER" },
-    });
-    prisma.refreshToken.delete.mockResolvedValue({} as any);
+    // Mock: find expired token
+    dbMock.execute.mockResolvedValueOnce([
+      [
+        {
+          id: "rt1",
+          tokenHash,
+          userId: "u1",
+          expiresAt: new Date(Date.now() - 1000), // Expired
+          email: "a@b.com",
+          username: "alice",
+          role: "USER",
+        },
+      ],
+      [],
+    ]);
+    // Mock: delete expired token
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     const res = await request(app).post("/auth/refresh").send({ refreshToken });
 
@@ -115,13 +142,16 @@ describe("auth", () => {
     const refreshToken = "token-to-delete";
     const tokenHash = require("crypto").createHash("sha256").update(refreshToken).digest("hex");
 
-    prisma.refreshToken.delete.mockResolvedValue({} as any);
+    // Mock: delete token
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     const res = await request(app).post("/auth/logout").send({ refreshToken });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(prisma.refreshToken.delete).toHaveBeenCalledWith({ where: { tokenHash } });
+    expect(dbMock.execute).toHaveBeenCalledWith(expect.stringContaining("DELETE FROM refresh_tokens"), [
+      tokenHash,
+    ]);
   });
 
   test("GET /auth/me returns user profile", async () => {
@@ -132,15 +162,17 @@ describe("auth", () => {
       { expiresIn: "15m" }
     );
 
-    prisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      email: "a@b.com",
-      username: "alice",
-      role: "USER",
-    });
-    prisma.watchlist.findMany.mockResolvedValue([]);
-    prisma.history.findMany.mockResolvedValue([]);
-    prisma.rating.findMany.mockResolvedValue([]);
+    // Mock: get user
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "a@b.com", username: "alice", role: "USER" }],
+      [],
+    ]);
+    // Mock: get watchlist
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    // Mock: get history
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    // Mock: get ratings
+    dbMock.execute.mockResolvedValueOnce([[], []]);
 
     const res = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
 
@@ -167,4 +199,3 @@ describe("auth", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 });
-

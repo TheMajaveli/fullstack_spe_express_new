@@ -1,14 +1,14 @@
 import request from "supertest";
 import { createApp } from "../src/app";
+import { dbMock } from "./__mocks__/mysqlClient";
 
-jest.mock("../src/prisma/client", () => {
-  const { prismaMock } = require("./__mocks__/prismaClient");
-  return { prisma: prismaMock };
+jest.mock("../src/database/connection", () => {
+  const { dbMock } = require("./__mocks__/mysqlClient");
+  return { db: dbMock };
 });
 
 describe("user space", () => {
   const app = createApp();
-  const { prisma } = require("../src/prisma/client");
   const jwt = require("jsonwebtoken");
 
   let userToken: string;
@@ -33,15 +33,17 @@ describe("user space", () => {
   });
 
   test("GET /user/me returns user profile with watchlist/history/ratings", async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      email: "user@test.com",
-      username: "user",
-      role: "USER",
-    });
-    prisma.watchlist.findMany.mockResolvedValue([{ movieId: "m1" }, { movieId: "m2" }]);
-    prisma.history.findMany.mockResolvedValue([{ movieId: "m1" }]);
-    prisma.rating.findMany.mockResolvedValue([{ movieId: "m1", ratingNumber: 8 }]);
+    // Mock: get user
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "user@test.com", username: "user", role: "USER" }],
+      [],
+    ]);
+    // Mock: get watchlist
+    dbMock.execute.mockResolvedValueOnce([[{ movieId: "m1" }, { movieId: "m2" }], []]);
+    // Mock: get history
+    dbMock.execute.mockResolvedValueOnce([[{ movieId: "m1" }], []]);
+    // Mock: get ratings
+    dbMock.execute.mockResolvedValueOnce([[{ movieId: "m1", ratingNumber: 8 }], []]);
 
     const res = await request(app).get("/user/me").set("Authorization", `Bearer ${userToken}`);
 
@@ -53,17 +55,18 @@ describe("user space", () => {
   });
 
   test("POST /user/watchlist/:movieId adds movie to watchlist", async () => {
-    prisma.movie.findUnique.mockResolvedValue({ id: "m1", title: "Test Movie" });
-    prisma.watchlist.upsert.mockResolvedValue({} as any);
-    prisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      email: "user@test.com",
-      username: "user",
-      role: "USER",
-    });
-    prisma.watchlist.findMany.mockResolvedValue([{ movieId: "m1" }]);
-    prisma.history.findMany.mockResolvedValue([]);
-    prisma.rating.findMany.mockResolvedValue([]);
+    // Mock: check movie exists
+    dbMock.execute.mockResolvedValueOnce([[{ id: "m1", title: "Test Movie" }], []]);
+    // Mock: insert watchlist
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: get user profile
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "user@test.com", username: "user", role: "USER" }],
+      [],
+    ]);
+    dbMock.execute.mockResolvedValueOnce([[{ movieId: "m1" }], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
 
     const res = await request(app)
       .post("/user/watchlist/m1")
@@ -72,7 +75,10 @@ describe("user space", () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.watchlist).toContain("m1");
-    expect(prisma.watchlist.upsert).toHaveBeenCalled();
+    expect(dbMock.execute).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT IGNORE INTO watchlist"),
+      ["u1", "m1"]
+    );
   });
 
   test("POST /user/watchlist/:movieId requires authentication", async () => {
@@ -82,16 +88,16 @@ describe("user space", () => {
   });
 
   test("DELETE /user/watchlist/:movieId removes from watchlist", async () => {
-    prisma.watchlist.delete.mockResolvedValue({} as any);
-    prisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      email: "user@test.com",
-      username: "user",
-      role: "USER",
-    });
-    prisma.watchlist.findMany.mockResolvedValue([]);
-    prisma.history.findMany.mockResolvedValue([]);
-    prisma.rating.findMany.mockResolvedValue([]);
+    // Mock: delete watchlist
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: get user profile
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "user@test.com", username: "user", role: "USER" }],
+      [],
+    ]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
 
     const res = await request(app)
       .delete("/user/watchlist/m1")
@@ -99,25 +105,29 @@ describe("user space", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(prisma.watchlist.delete).toHaveBeenCalledWith({
-      where: { userId_movieId: { userId: "u1", movieId: "m1" } },
-    });
+    expect(dbMock.execute).toHaveBeenCalledWith(
+      expect.stringContaining("DELETE FROM watchlist"),
+      ["u1", "m1"]
+    );
   });
 
   test("POST /user/ratings/:movieId adds rating", async () => {
-    prisma.movie.findUnique.mockResolvedValue({ id: "m1" });
-    prisma.rating.upsert.mockResolvedValue({} as any);
-    prisma.rating.aggregate.mockResolvedValue({ _avg: { ratingNumber: 8.5 } });
-    prisma.movie.update.mockResolvedValue({} as any);
-    prisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      email: "user@test.com",
-      username: "user",
-      role: "USER",
-    });
-    prisma.watchlist.findMany.mockResolvedValue([]);
-    prisma.history.findMany.mockResolvedValue([]);
-    prisma.rating.findMany.mockResolvedValue([{ movieId: "m1", ratingNumber: 8 }]);
+    // Mock: check movie exists
+    dbMock.execute.mockResolvedValueOnce([[{ id: "m1" }], []]);
+    // Mock: upsert rating
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: get average rating
+    dbMock.execute.mockResolvedValueOnce([[{ avgRating: 8.5 }], []]);
+    // Mock: update movie rating
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: get user profile
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "user@test.com", username: "user", role: "USER" }],
+      [],
+    ]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[{ movieId: "m1", ratingNumber: 8 }], []]);
 
     const res = await request(app)
       .post("/user/ratings/m1")
@@ -126,11 +136,10 @@ describe("user space", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(prisma.rating.upsert).toHaveBeenCalledWith({
-      where: { userId_movieId: { userId: "u1", movieId: "m1" } },
-      update: { ratingNumber: 8, note: "Great movie!" },
-      create: { userId: "u1", movieId: "m1", ratingNumber: 8, note: "Great movie!" },
-    });
+    expect(dbMock.execute).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO ratings"),
+      expect.arrayContaining(["u1", "m1", 8])
+    );
   });
 
   test("POST /user/ratings/:movieId rejects invalid rating", async () => {
@@ -144,17 +153,18 @@ describe("user space", () => {
   });
 
   test("POST /user/history/:movieId records view", async () => {
-    prisma.movie.findUnique.mockResolvedValue({ id: "m1" });
-    prisma.history.upsert.mockResolvedValue({} as any);
-    prisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      email: "user@test.com",
-      username: "user",
-      role: "USER",
-    });
-    prisma.watchlist.findMany.mockResolvedValue([]);
-    prisma.history.findMany.mockResolvedValue([{ movieId: "m1" }]);
-    prisma.rating.findMany.mockResolvedValue([]);
+    // Mock: check movie exists
+    dbMock.execute.mockResolvedValueOnce([[{ id: "m1" }], []]);
+    // Mock: upsert history
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: get user profile
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "u1", email: "user@test.com", username: "user", role: "USER" }],
+      [],
+    ]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[{ movieId: "m1" }], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
 
     const res = await request(app)
       .post("/user/history/m1")
@@ -162,6 +172,60 @@ describe("user space", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(prisma.history.upsert).toHaveBeenCalled();
+    expect(dbMock.execute).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO history"),
+      expect.arrayContaining(["u1", "m1"])
+    );
+  });
+
+  test("POST /user/watchlist/:movieId returns 404 for missing movie", async () => {
+    // Mock: movie not found
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+
+    const res = await request(app)
+      .post("/user/watchlist/nonexistent-movie")
+      .set("Authorization", `Bearer ${userToken}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("NOT_FOUND");
+  });
+
+  test("POST /user/ratings/:movieId validates rating range", async () => {
+    const res = await request(app)
+      .post("/user/ratings/m1")
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ ratingNumber: 15, note: "Great" }); // Over 10
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  test("POST /user/ratings/:movieId returns 404 for missing movie", async () => {
+    // Mock: movie not found
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+
+    const res = await request(app)
+      .post("/user/ratings/nonexistent-movie")
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ ratingNumber: 8 });
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("NOT_FOUND");
+  });
+
+  test("POST /user/history/:movieId returns 404 for missing movie", async () => {
+    // Mock: movie not found
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+
+    const res = await request(app)
+      .post("/user/history/nonexistent-movie")
+      .set("Authorization", `Bearer ${userToken}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("NOT_FOUND");
   });
 });
