@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Play, Plus, Check, Star, Clock, Calendar, ArrowLeft, Share2, MessageCircle, User } from 'lucide-react';
 import { api } from '../services/api';
 import { Button, Skeleton, Modal } from '../components/DesignSystem';
+import { RatingModal } from '../components/RatingModal';
+import { useToast } from '../components/UI';
 import { useStore } from '../store';
 
 export const MovieDetailPage: React.FC = () => {
@@ -13,6 +15,7 @@ export const MovieDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, updateUser } = useStore();
   const [isRateModalOpen, setRateModalOpen] = useState(false);
+  const toast = useToast();
 
   const { data: movie, isLoading } = useQuery({
     queryKey: ['movie', id],
@@ -22,16 +25,44 @@ export const MovieDetailPage: React.FC = () => {
 
   const isInWatchlist = user?.watchlist.includes(id || '');
 
-  const toggleWatchlist = () => {
+  const toggleWatchlist = async () => {
     if (!isAuthenticated) return navigate('/auth/login');
-    const newList = isInWatchlist 
-      ? user!.watchlist.filter(mid => mid !== id)
-      : [...user!.watchlist, id!];
-    updateUser({ watchlist: newList });
+    if (!id) return;
+    
+    try {
+      if (isInWatchlist) {
+        const result = await api.user.removeWatchlist(id);
+        updateUser({ watchlist: result.watchlist });
+      } else {
+        const result = await api.user.addWatchlist(id);
+        updateUser({ watchlist: result.watchlist });
+      }
+      // Refresh user profile to get updated data
+      const updatedUser = await api.auth.me();
+      useStore.getState().setAuth({ user: updatedUser });
+      toast(isInWatchlist ? 'Retiré de la liste' : 'Ajouté à la liste', 'success');
+    } catch (error: any) {
+      toast(error.message || 'Échec de mise à jour de la liste', 'error');
+    }
+  };
+
+  const handleMarkAsWatched = async () => {
+    if (!isAuthenticated) return navigate('/auth/login');
+    if (!id) return;
+    
+    try {
+      await api.user.addHistory(id);
+      // Refresh user profile
+      const updatedUser = await api.auth.me();
+      useStore.getState().setAuth({ user: updatedUser });
+      toast('Marqué comme vu', 'success');
+    } catch (error: any) {
+      toast(error.message || 'Échec de marquage comme vu', 'error');
+    }
   };
 
   if (isLoading) return <div className="p-20"><Skeleton className="h-[70vh] w-full" /></div>;
-  if (!movie) return <div className="p-20 text-center">Movie not found</div>;
+  if (!movie) return <div className="p-20 text-center">Film introuvable</div>;
 
   return (
     <div className="animate-in fade-in duration-700">
@@ -64,7 +95,9 @@ export const MovieDetailPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-              <Button size="lg" className="gap-3 px-10 uppercase text-xs tracking-widest"><Play fill="currentColor" size={18} /> Trailer</Button>
+              <Button size="lg" className="gap-3 px-10 uppercase text-xs tracking-widest" onClick={handleMarkAsWatched}>
+                <Play fill="currentColor" size={18} /> Marquer comme vu
+              </Button>
               <Button 
                 variant={isInWatchlist ? "secondary" : "outline"} 
                 size="lg" 
@@ -72,7 +105,7 @@ export const MovieDetailPage: React.FC = () => {
                 onClick={toggleWatchlist}
               >
                 {isInWatchlist ? <Check size={20} /> : <Plus size={20} />}
-                {isInWatchlist ? 'Watchlisted' : 'Add to list'}
+                {isInWatchlist ? 'Dans ma liste' : 'Ajouter à ma liste'}
               </Button>
               <Button variant="outline" size="icon" onClick={() => setRateModalOpen(true)}><Star size={20} /></Button>
             </div>
@@ -94,7 +127,7 @@ export const MovieDetailPage: React.FC = () => {
 
           <div className="space-y-8">
              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 flex items-center gap-4">
-              <span className="h-px w-8 bg-zinc-800" /> Director
+              <span className="h-px w-8 bg-zinc-800" /> Réalisateur
             </h3>
             <div className="flex items-center gap-6 group cursor-pointer">
               <div className="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden transition-transform group-hover:scale-105">
@@ -102,7 +135,7 @@ export const MovieDetailPage: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-lg font-black uppercase tracking-tight">{movie.director}</h4>
-                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Director & Screenwriter</p>
+                <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Réalisateur & Scénariste</p>
               </div>
             </div>
           </div>
@@ -110,12 +143,12 @@ export const MovieDetailPage: React.FC = () => {
 
         <aside className="space-y-12">
           <div className="space-y-6">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Cast Members</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Distribution</h3>
             <div className="space-y-4">
                {['Leonardo DiCaprio', 'Joseph Gordon-Levitt', 'Elliot Page', 'Tom Hardy'].map(actor => (
                  <div key={actor} className="flex justify-between items-center py-3 border-b border-zinc-900 group cursor-pointer">
                     <span className="text-sm font-bold text-zinc-400 group-hover:text-white transition-colors">{actor}</span>
-                    <span className="text-[10px] font-black uppercase text-zinc-700">Actor</span>
+                    <span className="text-[10px] font-black uppercase text-zinc-700">Acteur</span>
                  </div>
                ))}
             </div>
@@ -124,10 +157,10 @@ export const MovieDetailPage: React.FC = () => {
           <div className="p-8 bg-zinc-950/50 border border-zinc-900 rounded-sm space-y-6">
             <div className="flex items-center gap-3">
               <MessageCircle size={18} className="text-accent" />
-              <h3 className="text-xs font-black uppercase tracking-widest">Recent Review</h3>
+              <h3 className="text-xs font-black uppercase tracking-widest">Critique Récente</h3>
             </div>
             <p className="text-sm text-zinc-500 italic leading-relaxed">
-              "A cinematic tour de force that challenges the boundaries of mainstream storytelling. Pure artistic vision."
+              "Une œuvre cinématographique qui repousse les limites de la narration grand public. Une vision artistique pure."
             </p>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-zinc-800" />
@@ -137,16 +170,14 @@ export const MovieDetailPage: React.FC = () => {
         </aside>
       </section>
 
-      <Modal isOpen={isRateModalOpen} onClose={() => setRateModalOpen(false)} title="Rate this film">
-        <div className="space-y-8 py-4">
-          <p className="text-sm text-zinc-400 text-center uppercase tracking-widest font-bold">What's your score for {movie.title}?</p>
-          <div className="flex justify-center gap-4">
-            {[1, 2, 3, 4, 5].map(i => (
-              <button key={i} className="text-zinc-800 hover:text-accent transition-colors"><Star size={48} /></button>
-            ))}
-          </div>
-          <Button className="w-full" onClick={() => setRateModalOpen(false)}>Confirm Rating</Button>
-        </div>
+      <Modal isOpen={isRateModalOpen} onClose={() => setRateModalOpen(false)} title="Noter ce film">
+        <RatingModal 
+          movie={movie}
+          onClose={() => setRateModalOpen(false)}
+          onSuccess={() => {
+            setRateModalOpen(false);
+          }}
+        />
       </Modal>
     </div>
   );
