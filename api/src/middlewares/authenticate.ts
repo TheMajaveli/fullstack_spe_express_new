@@ -14,7 +14,7 @@ export type AuthedRequest = Request & {
 export function authenticate(req: AuthedRequest, _res: Response, next: NextFunction) {
   const header = req.header("authorization");
   if (!header?.startsWith("Bearer ")) {
-    return next(new HttpError(401, "Unauthorized", { code: "UNAUTHORIZED" }));
+    return next(new HttpError(401, "Non autorisé", { code: "UNAUTHORIZED" }));
   }
   const token = header.slice("Bearer ".length).trim();
   try {
@@ -27,7 +27,7 @@ export function authenticate(req: AuthedRequest, _res: Response, next: NextFunct
     };
     return next();
   } catch {
-    return next(new HttpError(401, "Unauthorized", { code: "UNAUTHORIZED" }));
+    return next(new HttpError(401, "Non autorisé", { code: "UNAUTHORIZED" }));
   }
 }
 

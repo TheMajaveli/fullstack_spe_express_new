@@ -6,7 +6,7 @@ export function requireRole(...roles: Array<"USER" | "ADMIN">) {
   return (req: AuthedRequest, _res: Response, next: NextFunction) => {
     const role = req.auth?.role;
     if (!role || !roles.includes(role)) {
-      return next(new HttpError(403, "Forbidden", { code: "FORBIDDEN" }));
+      return next(new HttpError(403, "Accès interdit", { code: "FORBIDDEN" }));
     }
     return next();
   };

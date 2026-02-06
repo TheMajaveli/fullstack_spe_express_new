@@ -29,7 +29,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   console.error(err);
   return res.status(500).json({
     success: false,
-    error: { message: "Internal Server Error" },
+    error: { message: "Erreur interne du serveur" },
   });
 }
 

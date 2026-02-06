@@ -89,12 +89,12 @@ export const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) =
 export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-cinema-card border border-cinema-border p-8 shadow-2xl animate-fade-up">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-black uppercase tracking-tighter">{title}</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white">✕</button>
+      <div className="relative w-full max-w-lg bg-cinema-card border border-cinema-border p-4 sm:p-6 md:p-8 shadow-2xl animate-fade-up my-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-black uppercase tracking-tighter">{title}</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white text-xl sm:text-2xl" aria-label="Fermer">✕</button>
         </div>
         {children}
       </div>

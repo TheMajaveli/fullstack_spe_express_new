@@ -6,7 +6,7 @@ export function validate(req: Request, _res: Response, next: NextFunction) {
   const result = validationResult(req);
   if (!result.isEmpty()) {
     return next(
-      new HttpError(400, "Validation error", {
+      new HttpError(400, "Erreur de validation", {
         code: "VALIDATION_ERROR",
         details: result.array(),
       })

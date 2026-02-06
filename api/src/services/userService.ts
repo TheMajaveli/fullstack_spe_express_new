@@ -1,86 +1,85 @@
-import { prisma } from "../prisma/client";
+import { db } from "../database/connection";
 import { HttpError } from "../middlewares/errorHandler";
 
 export async function getUserProfile(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, username: true, role: true },
-  });
-  if (!user) throw new HttpError(404, "User not found", { code: "NOT_FOUND" });
+  const [userRows] = await db.execute("SELECT id, email, username, role FROM users WHERE id = ?", [userId]);
+  const userArray = userRows as any[];
+  if (userArray.length === 0) {
+    throw new HttpError(404, "Utilisateur non trouvé", { code: "NOT_FOUND" });
+  }
 
-  const [watchlist, history, ratings] = await Promise.all([
-    prisma.watchlist.findMany({ where: { userId }, select: { movieId: true }, orderBy: { createdAt: "desc" } }),
-    prisma.history.findMany({ where: { userId }, select: { movieId: true }, orderBy: { seenAt: "desc" } }),
-    prisma.rating.findMany({ where: { userId }, select: { movieId: true, ratingNumber: true } }),
-  ]);
+  const user = userArray[0];
+
+  const [watchlistRows] = await db.execute(
+    "SELECT movieId FROM watchlist WHERE userId = ? ORDER BY createdAt DESC",
+    [userId]
+  );
+  const [historyRows] = await db.execute("SELECT movieId FROM history WHERE userId = ? ORDER BY seenAt DESC", [userId]);
+  const [ratingsRows] = await db.execute("SELECT movieId, ratingNumber FROM ratings WHERE userId = ?", [userId]);
 
   const ratingsMap: Record<string, number> = {};
-  for (const r of ratings) ratingsMap[r.movieId] = r.ratingNumber;
+  for (const r of ratingsRows as any[]) {
+    ratingsMap[r.movieId] = r.ratingNumber;
+  }
 
   return {
     id: user.id,
     email: user.email,
     username: user.username,
     role: user.role === "ADMIN" ? "admin" : "user",
-    watchlist: watchlist.map((w) => w.movieId),
-    history: history.map((h) => h.movieId),
+    watchlist: (watchlistRows as any[]).map((w) => w.movieId),
+    history: (historyRows as any[]).map((h) => h.movieId),
     ratings: ratingsMap,
   };
 }
 
 export async function addToWatchlist(userId: string, movieId: string) {
-  await prisma.movie.findUnique({ where: { id: movieId } }).then((m) => {
-    if (!m) throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
-  });
-  await prisma.watchlist.upsert({
-    where: { userId_movieId: { userId, movieId } },
-    update: {},
-    create: { userId, movieId },
-  });
+  const [movieRows] = await db.execute("SELECT id FROM movies WHERE id = ?", [movieId]);
+  if ((movieRows as any[]).length === 0) {
+    throw new HttpError(404, "Film non trouvé", { code: "NOT_FOUND" });
+  }
+
+  await db.execute("INSERT IGNORE INTO watchlist (userId, movieId) VALUES (?, ?)", [userId, movieId]);
   return getUserProfile(userId);
 }
 
 export async function removeFromWatchlist(userId: string, movieId: string) {
-  await prisma.watchlist.delete({ where: { userId_movieId: { userId, movieId } } }).catch(() => {});
+  await db.execute("DELETE FROM watchlist WHERE userId = ? AND movieId = ?", [userId, movieId]).catch(() => {});
   return getUserProfile(userId);
 }
 
 export async function addRating(userId: string, movieId: string, ratingNumber: number, note?: string) {
   if (ratingNumber < 0 || ratingNumber > 10) {
-    throw new HttpError(400, "ratingNumber must be between 0 and 10", { code: "VALIDATION_ERROR" });
+    throw new HttpError(400, "La note doit être comprise entre 0 et 10", { code: "VALIDATION_ERROR" });
   }
-  await prisma.movie.findUnique({ where: { id: movieId } }).then((m) => {
-    if (!m) throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
-  });
 
-  await prisma.rating.upsert({
-    where: { userId_movieId: { userId, movieId } },
-    update: { ratingNumber, note },
-    create: { userId, movieId, ratingNumber, note },
-  });
+  const [movieRows] = await db.execute("SELECT id FROM movies WHERE id = ?", [movieId]);
+  if ((movieRows as any[]).length === 0) {
+    throw new HttpError(404, "Film non trouvé", { code: "NOT_FOUND" });
+  }
+
+  await db.execute(
+    "INSERT INTO ratings (userId, movieId, ratingNumber, note) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE ratingNumber = ?, note = ?",
+    [userId, movieId, ratingNumber, note || null, ratingNumber, note || null]
+  );
 
   // Update movie avg
-  const agg = await prisma.rating.aggregate({
-    where: { movieId },
-    _avg: { ratingNumber: true },
-  });
-  await prisma.movie.update({
-    where: { id: movieId },
-    data: { ratingAvg: agg._avg.ratingNumber ?? 0 },
-  });
+  const [aggRows] = await db.execute("SELECT AVG(ratingNumber) as avgRating FROM ratings WHERE movieId = ?", [movieId]);
+  const avgRating = (aggRows as any[])[0].avgRating ?? 0;
+  await db.execute("UPDATE movies SET ratingAvg = ? WHERE id = ?", [avgRating, movieId]);
 
   return getUserProfile(userId);
 }
 
 export async function addHistory(userId: string, movieId: string) {
-  await prisma.movie.findUnique({ where: { id: movieId } }).then((m) => {
-    if (!m) throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
-  });
-  await prisma.history.upsert({
-    where: { userId_movieId: { userId, movieId } },
-    update: { seenAt: new Date() },
-    create: { userId, movieId },
-  });
+  const [movieRows] = await db.execute("SELECT id FROM movies WHERE id = ?", [movieId]);
+  if ((movieRows as any[]).length === 0) {
+    throw new HttpError(404, "Film non trouvé", { code: "NOT_FOUND" });
+  }
+
+  await db.execute(
+    "INSERT INTO history (userId, movieId, seenAt) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE seenAt = NOW()",
+    [userId, movieId]
+  );
   return getUserProfile(userId);
 }
-
