@@ -33,6 +33,7 @@ export interface CatalogParams {
   minRating?: number;
   sort?: 'rating' | 'newest' | 'title';
   page?: number;
+  limit?: number;
 }
 
 export interface AuthState {

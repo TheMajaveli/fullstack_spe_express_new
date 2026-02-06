@@ -1,21 +1,23 @@
-
 import React, { useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Search, SlidersHorizontal, Star, Play, Info } from 'lucide-react';
+import { Search, Star, Play, Info } from 'lucide-react';
 import { api } from '../services/api';
-import { Button, Input, Skeleton, PosterCard } from '../components/DesignSystem';
+import { Button, Skeleton, PosterCard } from '../components/DesignSystem';
 import { CatalogParams } from '../types';
+
+const FALLBACK_CATEGORIES = ['Tous', 'Science-Fiction', 'Action', 'Drame', 'Policier', 'Horreur', 'Romance'];
 
 export const CatalogPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const params: CatalogParams = useMemo(() => ({
     search: searchParams.get('q') || '',
-    category: searchParams.get('category') || 'All',
+    category: searchParams.get('category') || 'Tous',
     minRating: Number(searchParams.get('rating')) || 0,
     sort: (searchParams.get('sort') as any) || 'newest',
     page: Number(searchParams.get('page')) || 1,
+    limit: Number(searchParams.get('limit')) || 6,
   }), [searchParams]);
 
   const { data, isLoading } = useQuery({
@@ -23,9 +25,27 @@ export const CatalogPage: React.FC = () => {
     queryFn: () => api.movies.list(params),
   });
 
+  const { data: categoriesList } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.categories.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const categories = useMemo(() => {
+    if (categoriesList?.length) {
+      return ['Tous', ...categoriesList.map((c) => c.name)];
+    }
+    return FALLBACK_CATEGORIES;
+  }, [categoriesList]);
+
+  const { data: featuredData } = useQuery({
+    queryKey: ['movies', 'featured'],
+    queryFn: () => api.movies.list({ page: 1, sort: 'rating' }),
+  });
+  const featuredMovie = featuredData?.data?.[0];
+
   const updateParam = (key: string, value: string | number) => {
     const newParams = new URLSearchParams(searchParams);
-    if (!value || value === 'All' || value === 0) {
+    if (!value || value === 'Tous' || value === 0) {
       newParams.delete(key);
     } else {
       newParams.set(key, String(value));
@@ -34,49 +54,58 @@ export const CatalogPage: React.FC = () => {
     setSearchParams(newParams);
   };
 
-  const categories = ['All', 'Sci-Fi', 'Action', 'Drama', 'Crime', 'Horror', 'Romance'];
-
   return (
-    <div className="space-y-0">
+    <div className="space-y-0" role="main" aria-label="Catalogue de films">
       {/* Featured Hero */}
-      <section className="relative h-[85vh] w-full overflow-hidden">
+      <section className="relative h-[85vh] w-full overflow-hidden" aria-label="Film en vedette">
         <div className="absolute inset-0 animate-blur-in">
-          <img 
-            src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=2000" 
+          <img
+            src={featuredMovie?.posterUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&q=80&w=2000'}
             className="w-full h-full object-cover scale-105"
-            alt="Hero background"
+            alt={featuredMovie ? `${featuredMovie.title} arrière-plan` : 'Arrière-plan héros'}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
         </div>
-        
+
         <div className="relative h-full max-w-[1400px] mx-auto px-6 flex flex-col justify-center space-y-8">
           <div className="space-y-4 max-w-2xl animate-fade-up">
             <div className="flex items-center gap-4 text-xs font-black uppercase tracking-[0.3em] text-accent">
-              <span className="flex items-center gap-1"><Star size={12} fill="currentColor" /> Featured Today</span>
+              <span className="flex items-center gap-1"><Star size={12} fill="currentColor" /> À la une aujourd'hui</span>
               <span className="h-px w-12 bg-accent opacity-50" />
             </div>
-            <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none italic">Inception</h1>
-            <p className="text-lg md:text-xl text-zinc-300 font-medium leading-relaxed">
-              In a world where technology allows for entry into the human mind through dream-sharing, a professional thief is given a task to plant an idea into a CEO's subconscious.
+            <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none italic">
+              {featuredMovie?.title ?? 'Découvrir les Films'}
+            </h1>
+            <p className="text-lg md:text-xl text-zinc-300 font-medium leading-relaxed line-clamp-3">
+              {featuredMovie?.description ?? 'Explorez le catalogue et trouvez votre prochain favori.'}
             </p>
             <div className="flex flex-wrap gap-4 pt-4">
-              <Link to="/movies/1"><Button size="lg" className="gap-3 px-12"><Play fill="currentColor" size={20} /> Watch Now</Button></Link>
-              <Link to="/movies/1"><Button variant="outline" size="lg" className="gap-3"><Info size={20} /> Details</Button></Link>
+              {featuredMovie ? (
+                <>
+                  <Link to={`/movies/${featuredMovie.id}`}><Button size="lg" className="gap-3 px-12"><Play fill="currentColor" size={20} /> Regarder</Button></Link>
+                  <Link to={`/movies/${featuredMovie.id}`}><Button variant="outline" size="lg" className="gap-3"><Info size={20} /> Détails</Button></Link>
+                </>
+              ) : (
+                <Link to="#catalog-control"><Button size="lg" className="gap-3 px-12">Parcourir le Catalogue</Button></Link>
+              )}
             </div>
           </div>
         </div>
       </section>
 
       {/* Catalog Control Bar */}
-      <div className="sticky top-16 z-40 glass border-b border-cinema-border">
+      <div id="catalog-control" className="sticky top-16 z-40 glass border-b border-cinema-border" role="search" aria-label="Filtrer le catalogue">
         <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between overflow-x-auto scrollbar-hide">
           <div className="flex items-center gap-8 shrink-0">
             {categories.map(cat => (
               <button
                 key={cat}
+                type="button"
                 onClick={() => updateParam('category', cat)}
                 className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${params.category === cat ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
+                aria-pressed={params.category === cat}
+                aria-label={`Filter by ${cat}`}
               >
                 {cat}
                 {params.category === cat && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
@@ -87,21 +116,35 @@ export const CatalogPage: React.FC = () => {
           <div className="flex items-center gap-6 shrink-0 ml-8">
             <div className="relative w-64 group">
               <Search size={14} className="absolute left-0 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-white transition-colors" />
-              <input 
-                placeholder="Search catalog..." 
+              <input
+                type="search"
+                placeholder="Rechercher..."
                 className="bg-transparent border-none text-xs font-bold pl-6 focus:outline-none w-full placeholder:text-zinc-700"
                 value={params.search}
                 onChange={(e) => updateParam('q', e.target.value)}
+                aria-label="Rechercher dans le catalogue"
               />
             </div>
-            <select 
-              value={params.sort} 
+            <select
+              value={params.sort}
               onChange={(e) => updateParam('sort', e.target.value)}
               className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-zinc-500 focus:outline-none cursor-pointer hover:text-white"
+              aria-label="Trier par"
             >
-              <option value="newest">Latest</option>
-              <option value="rating">Top Rated</option>
+              <option value="newest">Récents</option>
+              <option value="rating">Mieux notés</option>
               <option value="title">A-Z</option>
+            </select>
+            <select
+              value={params.limit}
+              onChange={(e) => updateParam('limit', e.target.value)}
+              className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-zinc-500 focus:outline-none cursor-pointer hover:text-white"
+              aria-label="Par page"
+            >
+              <option value="6">6 / page</option>
+              <option value="12">12 / page</option>
+              <option value="24">24 / page</option>
+              <option value="50">50 / page</option>
             </select>
           </div>
         </div>
@@ -115,8 +158,8 @@ export const CatalogPage: React.FC = () => {
           </div>
         ) : data?.data.length === 0 ? (
           <div className="min-h-[400px] flex flex-col items-center justify-center space-y-4 opacity-50">
-            <h3 className="text-xl font-black uppercase tracking-widest">No Films Found</h3>
-            <Button variant="link" onClick={() => setSearchParams({})}>Reset all filters</Button>
+            <h3 className="text-xl font-black uppercase tracking-widest">Aucun Film Trouvé</h3>
+            <Button variant="link" onClick={() => setSearchParams({})}>Réinitialiser les filtres</Button>
           </div>
         ) : (
           <div className="space-y-12">
@@ -131,7 +174,7 @@ export const CatalogPage: React.FC = () => {
             {/* Pagination */}
             {data && data.totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-cinema-border pt-12">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">{data.total} Films Discovered</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">{data.total} Films Découverts</span>
                 <div className="flex gap-4">
                   <Button 
                     variant="outline" 
@@ -139,7 +182,7 @@ export const CatalogPage: React.FC = () => {
                     disabled={params.page === 1}
                     onClick={() => updateParam('page', (params.page || 1) - 1)}
                   >
-                    Prev
+                    Précédent
                   </Button>
                   <Button 
                     variant="outline" 
@@ -147,7 +190,7 @@ export const CatalogPage: React.FC = () => {
                     disabled={params.page === data.totalPages}
                     onClick={() => updateParam('page', (params.page || 1) + 1)}
                   >
-                    Next
+                    Suivant
                   </Button>
                 </div>
               </div>
