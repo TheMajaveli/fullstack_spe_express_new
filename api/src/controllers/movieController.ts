@@ -9,6 +9,7 @@ export async function listMoviesController(req: Request, res: Response, next: Ne
     const sort = sortRaw === "newest" || sortRaw === "rating" || sortRaw === "title" ? sortRaw : undefined;
     const page = typeof req.query.page === "string" ? Number(req.query.page) : undefined;
     const rating = typeof req.query.rating === "string" ? Number(req.query.rating) : undefined;
+    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
 
     const data = await listMovies({
       q,
@@ -16,6 +17,7 @@ export async function listMoviesController(req: Request, res: Response, next: Ne
       sort,
       page: Number.isFinite(page) ? page : undefined,
       rating: Number.isFinite(rating) ? rating : undefined,
+      limit: Number.isFinite(limit) ? limit : undefined,
     });
 
     return res.json({ success: true, data });

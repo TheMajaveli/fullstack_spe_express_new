@@ -1,5 +1,6 @@
-import { prisma } from "../prisma/client";
+import { db } from "../database/connection";
 import { HttpError } from "../middlewares/errorHandler";
+import { randomUUID } from "crypto";
 
 export type MovieListParams = {
   q?: string;
@@ -7,13 +8,14 @@ export type MovieListParams = {
   rating?: number;
   sort?: "newest" | "rating" | "title";
   page?: number;
+  limit?: number;
 };
 
-const PAGE_SIZE = 6; // matches frontend mock
+const DEFAULT_PAGE_SIZE = 6;
+const MAX_PAGE_SIZE = 50;
 
 function toFrontendMovie(row: any) {
-  const categoryName: string =
-    row.categories?.[0]?.category?.name ?? row.categoryFallback ?? "Uncategorized";
+  const categoryName: string = row.categoryName ?? "Uncategorized";
 
   return {
     id: row.id,
@@ -33,50 +35,101 @@ export async function listMovies(params: MovieListParams) {
   const q = params.q?.trim();
   const category = params.category && params.category !== "All" ? params.category : undefined;
   const minRating = typeof params.rating === "number" && params.rating > 0 ? params.rating : undefined;
-
-  const where: any = {};
-  if (q) {
-    where.title = { contains: q, mode: "insensitive" };
-  }
-  if (minRating != null) {
-    where.ratingAvg = { gte: minRating };
-  }
-  if (category) {
-    where.categories = { some: { category: { name: category } } };
+  
+  // Limit: default 6, cap at 50, handle invalid values
+  let pageSize = DEFAULT_PAGE_SIZE;
+  if (params.limit !== undefined && Number.isFinite(params.limit) && params.limit > 0) {
+    pageSize = Math.min(Math.floor(params.limit), MAX_PAGE_SIZE);
   }
 
   const orderBy =
     params.sort === "rating"
-      ? { ratingAvg: "desc" as const }
+      ? "m.ratingAvg DESC"
       : params.sort === "title"
-        ? { title: "asc" as const }
-        : { year: "desc" as const };
+        ? "m.title ASC"
+        : "m.year DESC";
 
-  const [total, rows] = await Promise.all([
-    prisma.movie.count({ where }),
-    prisma.movie.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: { categories: { include: { category: true } } },
-    }),
-  ]);
+  const offset = (page - 1) * pageSize;
+
+  // Build WHERE clause and params separately for movies table vs joined query
+  let movieWhereClause = "1=1";
+  let joinedWhereClause = "1=1";
+  const movieParams: any[] = [];
+  const joinedParams: any[] = [];
+
+  if (q) {
+    movieWhereClause += " AND m.title LIKE ?";
+    joinedWhereClause += " AND m.title LIKE ?";
+    movieParams.push(`%${q}%`);
+    joinedParams.push(`%${q}%`);
+  }
+  if (minRating != null) {
+    movieWhereClause += " AND m.ratingAvg >= ?";
+    joinedWhereClause += " AND m.ratingAvg >= ?";
+    movieParams.push(minRating);
+    joinedParams.push(minRating);
+  }
+  if (category) {
+    joinedWhereClause += " AND c.name = ?";
+    joinedParams.push(category);
+  }
+
+  // Count query
+  let countQuery: string;
+  let countParams: any[];
+  
+  if (category) {
+    countQuery = `SELECT COUNT(DISTINCT m.id) as total FROM movies m 
+       LEFT JOIN movie_categories mc ON m.id = mc.movieId 
+       LEFT JOIN categories c ON mc.categoryId = c.id 
+       WHERE ${joinedWhereClause}`;
+    countParams = joinedParams;
+  } else {
+    countQuery = `SELECT COUNT(*) as total FROM movies m WHERE ${movieWhereClause}`;
+    countParams = movieParams;
+  }
+  
+  const [countRows] = await db.execute(countQuery, countParams);
+  const total = (countRows as any[])[0].total;
+
+  // Data query - always join to get category, use MAX() for categoryName to satisfy GROUP BY
+  // Use query() instead of execute() for LIMIT with placeholders to avoid prepared statement issues
+  const dataQuery = `
+    SELECT m.*, MAX(c.name) as categoryName 
+    FROM movies m
+    LEFT JOIN movie_categories mc ON m.id = mc.movieId
+    LEFT JOIN categories c ON mc.categoryId = c.id
+    WHERE ${category ? joinedWhereClause : movieWhereClause}
+    GROUP BY m.id
+    ORDER BY ${orderBy}
+    LIMIT ${offset}, ${pageSize}
+  `;
+
+  const dataParams = category ? joinedParams : movieParams;
+  const [rows] = await db.query(dataQuery, dataParams);
 
   return {
-    data: rows.map(toFrontendMovie),
+    data: (rows as any[]).map(toFrontendMovie),
     total,
-    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
 }
 
 export async function getMovie(id: string) {
-  const row = await prisma.movie.findUnique({
-    where: { id },
-    include: { categories: { include: { category: true } } },
-  });
-  if (!row) throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
-  return toFrontendMovie(row);
+  const [rows] = await db.execute(
+    `SELECT m.*, c.name as categoryName 
+     FROM movies m
+     LEFT JOIN movie_categories mc ON m.id = mc.movieId
+     LEFT JOIN categories c ON mc.categoryId = c.id
+     WHERE m.id = ?
+     LIMIT 1`,
+    [id]
+  );
+  const rowArray = rows as any[];
+  if (rowArray.length === 0) {
+    throw new HttpError(404, "Film non trouvé", { code: "NOT_FOUND" });
+  }
+  return toFrontendMovie(rowArray[0]);
 }
 
 export async function createMovie(input: {
@@ -89,39 +142,27 @@ export async function createMovie(input: {
   posterUrl?: string;
 }) {
   const releaseDate = new Date(`${input.year}-01-01T00:00:00.000Z`);
+  const movieId = randomUUID();
 
-  let categoryConnect:
-    | { create: { category: { connectOrCreate: { where: { name: string }; create: { name: string } } } } }
-    | undefined;
+  await db.execute(
+    "INSERT INTO movies (id, title, description, releaseDate, year, duration, director, posterUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [movieId, input.title, input.description, releaseDate, input.year, input.duration, input.director, input.posterUrl || ""]
+  );
 
   if (input.category && input.category !== "All") {
-    categoryConnect = {
-      create: {
-        category: {
-          connectOrCreate: {
-            where: { name: input.category },
-            create: { name: input.category },
-          },
-        },
-      },
-    };
+    // Get or create category
+    const [catRows] = await db.execute("SELECT id FROM categories WHERE name = ?", [input.category]);
+    let categoryId: string;
+    if ((catRows as any[]).length > 0) {
+      categoryId = (catRows as any[])[0].id;
+    } else {
+      categoryId = randomUUID();
+      await db.execute("INSERT INTO categories (id, name) VALUES (?, ?)", [categoryId, input.category]);
+    }
+    await db.execute("INSERT INTO movie_categories (movieId, categoryId) VALUES (?, ?)", [movieId, categoryId]);
   }
 
-  const movie = await prisma.movie.create({
-    data: {
-      title: input.title,
-      description: input.description,
-      year: input.year,
-      releaseDate,
-      duration: input.duration,
-      director: input.director,
-      posterUrl: input.posterUrl || "",
-      categories: categoryConnect,
-    },
-    include: { categories: { include: { category: true } } },
-  });
-
-  return toFrontendMovie(movie);
+  return getMovie(movieId);
 }
 
 export async function updateMovie(
@@ -136,49 +177,71 @@ export async function updateMovie(
     posterUrl: string;
   }>
 ) {
-  const existing = await prisma.movie.findUnique({ where: { id } });
-  if (!existing) throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
+  const [existing] = await db.execute("SELECT id FROM movies WHERE id = ?", [id]);
+  if ((existing as any[]).length === 0) {
+    throw new HttpError(404, "Film non trouvé", { code: "NOT_FOUND" });
+  }
 
-  const releaseDate = input.year ? new Date(`${input.year}-01-01T00:00:00.000Z`) : undefined;
+  const updates: string[] = [];
+  const params: any[] = [];
 
-  // If category provided, replace category links with single category
-  const categories =
-    input.category && input.category !== "All"
-      ? {
-          deleteMany: {},
-          create: {
-            category: {
-              connectOrCreate: {
-                where: { name: input.category },
-                create: { name: input.category },
-              },
-            },
-          },
-        }
-      : undefined;
+  if (input.title !== undefined) {
+    updates.push("title = ?");
+    params.push(input.title);
+  }
+  if (input.description !== undefined) {
+    updates.push("description = ?");
+    params.push(input.description);
+  }
+  if (input.year !== undefined) {
+    updates.push("year = ?");
+    updates.push("releaseDate = ?");
+    params.push(input.year);
+    params.push(new Date(`${input.year}-01-01T00:00:00.000Z`));
+  }
+  if (input.duration !== undefined) {
+    updates.push("duration = ?");
+    params.push(input.duration);
+  }
+  if (input.director !== undefined) {
+    updates.push("director = ?");
+    params.push(input.director);
+  }
+  if (input.posterUrl !== undefined) {
+    updates.push("posterUrl = ?");
+    params.push(input.posterUrl);
+  }
 
-  const movie = await prisma.movie.update({
-    where: { id },
-    data: {
-      title: input.title,
-      description: input.description,
-      year: input.year,
-      releaseDate,
-      duration: input.duration,
-      director: input.director,
-      posterUrl: input.posterUrl,
-      categories,
-    },
-    include: { categories: { include: { category: true } } },
-  });
+  if (updates.length > 0) {
+    params.push(id);
+    await db.execute(`UPDATE movies SET ${updates.join(", ")} WHERE id = ?`, params);
+  }
 
-  return toFrontendMovie(movie);
+  // Handle category update
+  if (input.category !== undefined && input.category !== "All") {
+    // Delete existing categories
+    await db.execute("DELETE FROM movie_categories WHERE movieId = ?", [id]);
+
+    // Get or create category
+    const [catRows] = await db.execute("SELECT id FROM categories WHERE name = ?", [input.category]);
+    let categoryId: string;
+    if ((catRows as any[]).length > 0) {
+      categoryId = (catRows as any[])[0].id;
+    } else {
+      categoryId = randomUUID();
+      await db.execute("INSERT INTO categories (id, name) VALUES (?, ?)", [categoryId, input.category]);
+    }
+    await db.execute("INSERT INTO movie_categories (movieId, categoryId) VALUES (?, ?)", [id, categoryId]);
+  }
+
+  return getMovie(id);
 }
 
 export async function deleteMovie(id: string) {
-  await prisma.movie.delete({ where: { id } }).catch(() => {
-    throw new HttpError(404, "Movie not found", { code: "NOT_FOUND" });
-  });
+  const [result] = await db.execute("DELETE FROM movies WHERE id = ?", [id]);
+  const affectedRows = (result as any).affectedRows;
+  if (affectedRows === 0) {
+    throw new HttpError(404, "Film non trouvé", { code: "NOT_FOUND" });
+  }
   return { ok: true };
 }
-
