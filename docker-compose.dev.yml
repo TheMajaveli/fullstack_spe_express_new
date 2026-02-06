@@ -1,0 +1,33 @@
+# Développement local : uniquement MySQL + (optionnel) API/Front en local
+# Usage: docker compose -f docker-compose.dev.yml up -d
+# Puis: cd api && npm run dev  et  cd frontend && npm run dev
+
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cinenoir_mysql_dev
+    environment:
+      MYSQL_DATABASE: cinenoir
+      MYSQL_USER: cinenoir
+      MYSQL_PASSWORD: cinenoir
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - cinenoir_dev
+
+volumes:
+  mysql_data_dev:
+
+networks:
+  cinenoir_dev:
+    driver: bridge
