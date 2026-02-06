@@ -9,8 +9,8 @@ import { api } from '../services/api';
 import { Button, Input } from '../components/DesignSystem';
 
 const schema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password too short'),
+  email: z.string().email('Adresse email invalide'),
+  password: z.string().min(6, 'Mot de passe trop court'),
 });
 
 export const LoginPage = () => {
@@ -30,31 +30,40 @@ export const LoginPage = () => {
     <div className="min-h-[80vh] flex items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-12 animate-fade-up">
         <div className="space-y-4 text-center">
-          <h1 className="text-5xl font-black uppercase tracking-tighter italic">Welcome Back</h1>
-          <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest">Login to your cinematic workspace</p>
+          <h1 className="text-5xl font-black uppercase tracking-tighter italic">Bon Retour</h1>
+          <p className="text-zinc-500 text-sm font-bold uppercase tracking-widest">Connectez-vous à votre espace cinématographique</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           <Input 
-            label="Email Address" 
+            label="Adresse Email" 
             type="email" 
             placeholder="j.godard@nouvellevague.com"
             error={errors.email?.message as string}
             {...register('email')}
           />
           <Input 
-            label="Security Key" 
+            label="Mot de Passe" 
             type="password" 
             placeholder="••••••••"
             error={errors.password?.message as string}
             {...register('password')}
           />
-          <Button type="submit" className="w-full" size="lg" isLoading={isSubmitting}>Authorize Entry</Button>
+          <Link to="/auth/forgot-password" className="text-xs text-zinc-500 hover:text-white transition-colors text-right block">
+            Mot de passe oublié ?
+          </Link>
+          
+          <Button type="submit" className="w-full" size="lg" isLoading={isSubmitting}>Se Connecter</Button>
         </form>
 
-        <p className="text-center text-xs font-bold text-zinc-600 uppercase tracking-widest">
-          No account? <Link to="/auth/register" className="text-white hover:text-accent ml-1 transition-colors">Join the collective</Link>
-        </p>
+        <div className="space-y-3 text-center">
+          <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest">
+            Pas de compte ? <Link to="/auth/register" className="text-white hover:text-accent ml-1 transition-colors">Rejoignez le collectif</Link>
+          </p>
+          <Link to="/admin/login" className="text-xs text-zinc-700 hover:text-zinc-400 transition-colors block">
+            Accès administrateur →
+          </Link>
+        </div>
       </div>
     </div>
   );
