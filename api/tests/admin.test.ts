@@ -1,14 +1,14 @@
 import request from "supertest";
 import { createApp } from "../src/app";
+import { dbMock } from "./__mocks__/mysqlClient";
 
-jest.mock("../src/prisma/client", () => {
-  const { prismaMock } = require("./__mocks__/prismaClient");
-  return { prisma: prismaMock };
+jest.mock("../src/database/connection", () => {
+  const { dbMock } = require("./__mocks__/mysqlClient");
+  return { db: dbMock };
 });
 
 describe("admin", () => {
   const app = createApp();
-  const { prisma } = require("../src/prisma/client");
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -29,17 +29,29 @@ describe("admin", () => {
       { expiresIn: "15m" }
     );
 
-    prisma.movie.create.mockResolvedValue({
-      id: "m1",
-      title: "X",
-      description: "D",
-      year: 2020,
-      ratingAvg: 0,
-      posterUrl: "/uploads/p.png",
-      duration: "1h",
-      director: "Dir",
-      categories: [{ category: { name: "Action" } }],
-    });
+    // Mock: insert movie
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: check/get category
+    dbMock.execute.mockResolvedValueOnce([[{ id: "c1", name: "Action" }], []]);
+    // Mock: link movie to category
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    // Mock: get movie (for return)
+    dbMock.execute.mockResolvedValueOnce([
+      [
+        {
+          id: "m1",
+          title: "X",
+          description: "D",
+          year: 2020,
+          ratingAvg: 0,
+          posterUrl: "/uploads/p.png",
+          duration: "1h",
+          director: "Dir",
+          categoryName: "Action",
+        },
+      ],
+      [],
+    ]);
 
     const res = await request(app)
       .post("/movies")
@@ -57,4 +69,3 @@ describe("admin", () => {
     expect(res.body.data.id).toBe("m1");
   });
 });
-

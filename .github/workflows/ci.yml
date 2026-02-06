@@ -11,16 +11,17 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
-        image: postgres:16
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_DB: cinenoir_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          MYSQL_DATABASE: cinenoir_test
+          MYSQL_USER: cinenoir
+          MYSQL_PASSWORD: cinenoir
+          MYSQL_ROOT_PASSWORD: rootpassword
         ports:
-          - 5432:5432
+          - 3306:3306
         options: >-
-          --health-cmd="pg_isready -U postgres"
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -39,14 +40,27 @@ jobs:
       working-directory: api
       run: npm ci
 
-    - name: Generate Prisma Client
+    - name: Setup MySQL Database
       working-directory: api
-      run: npm run prisma:generate
+      run: |
+        # Wait for MySQL to be ready
+        until mysqladmin ping -h 127.0.0.1 -u root -prootpassword --silent; do
+          echo "Waiting for MySQL..."
+          sleep 2
+        done
+        # Create database and run schema
+        mysql -h 127.0.0.1 -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS cinenoir_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+        # Remove CREATE DATABASE and USE statements from schema.sql for test DB
+        sed 's/CREATE DATABASE.*;//g; s/USE.*;//g' src/database/schema.sql | mysql -h 127.0.0.1 -u root -prootpassword cinenoir_test || true
 
     - name: Run API tests
       working-directory: api
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cinenoir_test?schema=public
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_USER: root
+        DB_PASSWORD: rootpassword
+        DB_NAME: cinenoir_test
         JWT_ACCESS_SECRET: test-access-secret
         JWT_REFRESH_SECRET: test-refresh-secret
         JWT_ACCESS_EXPIRES_IN: 15m
@@ -70,10 +84,6 @@ jobs:
       working-directory: api
       run: npm ci
 
-    - name: Generate Prisma Client
-      working-directory: api
-      run: npm run prisma:generate
-
     - name: Build API
       working-directory: api
       run: npm run build
@@ -96,3 +106,116 @@ jobs:
     - name: Build frontend
       working-directory: frontend
       run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [test-api, build-api, build-frontend]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: cinenoir_test
+          MYSQL_USER: cinenoir
+          MYSQL_PASSWORD: cinenoir
+          MYSQL_ROOT_PASSWORD: rootpassword
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: Install API dependencies
+      working-directory: api
+      run: npm ci
+
+    - name: Setup MySQL Database
+      working-directory: api
+      run: |
+        until mysqladmin ping -h 127.0.0.1 -u root -prootpassword --silent; do
+          echo "Waiting for MySQL..."
+          sleep 2
+        done
+        mysql -h 127.0.0.1 -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS cinenoir_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+        sed 's/CREATE DATABASE.*;//g; s/USE.*;//g' src/database/schema.sql | mysql -h 127.0.0.1 -u root -prootpassword cinenoir_test || true
+
+    - name: Seed test database
+      working-directory: api
+      env:
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_USER: root
+        DB_PASSWORD: rootpassword
+        DB_NAME: cinenoir_test
+        JWT_ACCESS_SECRET: test-access-secret
+        JWT_REFRESH_SECRET: test-refresh-secret
+        JWT_ACCESS_EXPIRES_IN: 15m
+        JWT_REFRESH_EXPIRES_IN: 7d
+      run: npm run db:seed
+
+    - name: Start API server in background
+      working-directory: api
+      env:
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_USER: root
+        DB_PASSWORD: rootpassword
+        DB_NAME: cinenoir_test
+        JWT_ACCESS_SECRET: test-access-secret
+        JWT_REFRESH_SECRET: test-refresh-secret
+        JWT_ACCESS_EXPIRES_IN: 15m
+        JWT_REFRESH_EXPIRES_IN: 7d
+        PORT: 4000
+      run: |
+        npm run dev &
+        sleep 10
+        curl -f http://localhost:4000/health || exit 1
+
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm install
+
+    - name: Build frontend
+      working-directory: frontend
+      run: npm run build
+
+    - name: Start frontend in background
+      working-directory: frontend
+      env:
+        VITE_API_URL: http://localhost:4000
+      run: |
+        npx vite preview --port 5173 --host &
+        sleep 5
+        curl -f http://localhost:5173 || exit 1
+
+    - name: Install E2E dependencies
+      working-directory: e2e
+      run: npm install
+
+    - name: Install Playwright browsers
+      working-directory: e2e
+      run: npx playwright install --with-deps chromium
+
+    - name: Run E2E tests
+      working-directory: e2e
+      env:
+        E2E_BASE_URL: http://localhost:5173
+      run: npm test
+
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: playwright-report
+        path: e2e/playwright-report/
+        retention-days: 7

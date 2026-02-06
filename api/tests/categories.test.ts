@@ -1,14 +1,14 @@
 import request from "supertest";
 import { createApp } from "../src/app";
+import { dbMock } from "./__mocks__/mysqlClient";
 
-jest.mock("../src/prisma/client", () => {
-  const { prismaMock } = require("./__mocks__/prismaClient");
-  return { prisma: prismaMock };
+jest.mock("../src/database/connection", () => {
+  const { dbMock } = require("./__mocks__/mysqlClient");
+  return { db: dbMock };
 });
 
 describe("categories", () => {
   const app = createApp();
-  const { prisma } = require("../src/prisma/client");
   const jwt = require("jsonwebtoken");
 
   let adminToken: string;
@@ -26,9 +26,12 @@ describe("categories", () => {
   });
 
   test("GET /categories returns all categories", async () => {
-    prisma.category.findMany.mockResolvedValue([
-      { id: "c1", name: "Action" },
-      { id: "c2", name: "Sci-Fi" },
+    dbMock.execute.mockResolvedValueOnce([
+      [
+        { id: "c1", name: "Action" },
+        { id: "c2", name: "Sci-Fi" },
+      ],
+      [],
     ]);
 
     const res = await request(app).get("/categories");
@@ -40,7 +43,7 @@ describe("categories", () => {
   });
 
   test("POST /categories creates category (admin only)", async () => {
-    prisma.category.create.mockResolvedValue({ id: "c1", name: "Horror" });
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     const res = await request(app)
       .post("/categories")
@@ -69,7 +72,7 @@ describe("categories", () => {
   });
 
   test("PUT /categories/:id updates category", async () => {
-    prisma.category.update.mockResolvedValue({ id: "c1", name: "Thriller" });
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     const res = await request(app)
       .put("/categories/c1")
@@ -82,7 +85,7 @@ describe("categories", () => {
   });
 
   test("DELETE /categories/:id deletes category", async () => {
-    prisma.category.delete.mockResolvedValue({} as any);
+    dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
 
     const res = await request(app)
       .delete("/categories/c1")
@@ -90,6 +93,6 @@ describe("categories", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: "c1" } });
+    expect(dbMock.execute).toHaveBeenCalledWith(expect.stringContaining("DELETE FROM categories"), ["c1"]);
   });
 });
