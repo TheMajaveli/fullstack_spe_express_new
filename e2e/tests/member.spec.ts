@@ -1,13 +1,17 @@
 import { test, expect } from '@playwright/test';
 
+async function loginAsMember(page: import('@playwright/test').Page) {
+  await page.goto('/auth/login');
+  await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible({ timeout: 15000 });
+  await page.getByLabel(/adresse email|email/i).fill('admin@cinenoir.local');
+  await page.getByLabel(/mot de passe|password/i).fill('Admin1234');
+  await page.click('button[type="submit"]');
+  await page.waitForTimeout(1500);
+}
+
 test.describe('Member Features', () => {
   test.beforeEach(async ({ page }) => {
-    // Login before each test
-    await page.goto('/auth/login');
-    await page.fill('input[type="email"]', 'admin@cinenoir.local');
-    await page.fill('input[type="password"]', 'Admin1234');
-    await page.click('button[type="submit"]');
-    await page.waitForTimeout(1500);
+    await loginAsMember(page);
   });
 
   test('should add movie to watchlist', async ({ page }) => {
@@ -19,15 +23,11 @@ test.describe('Member Features', () => {
       await firstMovie.click();
       await page.waitForTimeout(500);
       
-      // Click watchlist button
-      const watchlistBtn = page.locator('button:has-text("Watchlist")').first();
+      const watchlistBtn = page.locator('button:has-text(/ma liste|watchlist|ajouter à/i)').first();
       if (await watchlistBtn.isVisible()) {
         await watchlistBtn.click();
         
-        // Should show success feedback
-        await expect(page.locator('text=/added|success/i')).toBeVisible({ timeout: 3000 }).catch(() => {
-          // Toast might disappear quickly, that's OK
-        });
+        await expect(page.locator('text=/ajouté|added|success|liste/i')).toBeVisible({ timeout: 3000 }).catch(() => {});
       }
     }
   });
@@ -41,29 +41,19 @@ test.describe('Member Features', () => {
       await firstMovie.click();
       await page.waitForTimeout(500);
       
-      // Click rate button
-      const rateBtn = page.locator('button:has-text("Rate")').first();
+      const rateBtn = page.locator('button[aria-label*="Noter"], button:has-text(/noter|rate/i)').first();
       if (await rateBtn.isVisible()) {
         await rateBtn.click();
         await page.waitForTimeout(500);
-        
-        // Select rating (click on star or input)
-        const ratingInput = page.locator('input[type="number"], button:has-text("★")').first();
-        if (await ratingInput.isVisible()) {
-          if ((await ratingInput.getAttribute('type')) === 'number') {
-            await ratingInput.fill('8');
-          } else {
-            await ratingInput.click();
-          }
-          
-          // Submit rating
-          const submitBtn = page.locator('button[type="submit"]:has-text(/submit|rate/i)');
-          if (await submitBtn.isVisible()) {
-            await submitBtn.click();
-            
-            // Should show success
-            await expect(page.locator('text=/rated|success/i')).toBeVisible({ timeout: 3000 }).catch(() => {});
-          }
+        const starButtons = page.locator('button[aria-label^="Noter "]');
+        if (await starButtons.first().isVisible()) {
+          await starButtons.nth(3).click();
+          await page.waitForTimeout(300);
+        }
+        const submitBtn = page.locator('button:has-text(/confirmer la note|confirmer|valider/i)');
+        if (await submitBtn.isVisible()) {
+          await submitBtn.click();
+          await expect(page.locator('text=/enregistrée|rated|success|note/i')).toBeVisible({ timeout: 5000 }).catch(() => {});
         }
       }
     }
@@ -78,13 +68,10 @@ test.describe('Member Features', () => {
       await firstMovie.click();
       await page.waitForTimeout(500);
       
-      // Click mark as watched button
-      const watchedBtn = page.locator('button:has-text(/watched|mark/i)').first();
+      const watchedBtn = page.locator('button:has-text(/marquer comme vu|watched|mark/i)').first();
       if (await watchedBtn.isVisible()) {
         await watchedBtn.click();
-        
-        // Should show success
-        await expect(page.locator('text=/watched|success/i')).toBeVisible({ timeout: 3000 }).catch(() => {});
+        await expect(page.locator('text=/marqué|vu|watched|success/i')).toBeVisible({ timeout: 3000 }).catch(() => {});
       }
     }
   });
@@ -92,7 +79,6 @@ test.describe('Member Features', () => {
   test('should view account page with watchlist', async ({ page }) => {
     await page.goto('/account');
     
-    // Should show account page
-    await expect(page.locator('text=/watchlist|profile|account/i')).toBeVisible();
+    await expect(page.locator('text=/watchlist|profile|account|compte|ma liste/i')).toBeVisible();
   });
 });

@@ -4,22 +4,19 @@ test.describe('Public Catalog', () => {
   test('should load catalog page and display movies', async ({ page }) => {
     await page.goto('/');
     
-    // Wait for catalog to load
-    await expect(page.locator('h1')).toContainText(/discover films/i);
-    
-    // Check for movie grid
+    // Wait for catalog: hero h1 can be "Découvrir les Films" or a featured movie title
     const movieGrid = page.locator('[data-testid="movie-grid"], .grid');
-    await expect(movieGrid).toBeVisible();
+    await expect(movieGrid).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('h1').first()).toBeVisible();
   });
 
   test('should apply search filter and update URL', async ({ page }) => {
     await page.goto('/');
     
-    // Type in search box
-    const searchInput = page.locator('input[placeholder*="Search"]');
-    await searchInput.fill('Matrix');
+    const searchInput = page.getByPlaceholder(/rechercher|search/i).or(page.locator('input[aria-label*="Rechercher"]'));
+    await searchInput.first().waitFor({ state: 'visible', timeout: 10000 });
+    await searchInput.first().fill('Matrix');
     
-    // URL should update
     await expect(page).toHaveURL(/q=Matrix/);
   });
 
@@ -39,11 +36,10 @@ test.describe('Public Catalog', () => {
   test('should change sort option', async ({ page }) => {
     await page.goto('/');
     
-    // Select sort option
-    const sortSelect = page.locator('select[aria-label="Sort by"]');
-    await sortSelect.selectOption('rating');
+    const sortSelect = page.locator('select[aria-label="Trier par"], select[aria-label="Sort by"]');
+    await sortSelect.first().waitFor({ state: 'visible', timeout: 10000 });
+    await sortSelect.first().selectOption('rating');
     
-    // URL should update
     await expect(page).toHaveURL(/sort=rating/);
   });
 
@@ -66,19 +62,15 @@ test.describe('Public Catalog', () => {
   test('should show 404 for invalid movie ID', async ({ page }) => {
     await page.goto('/movies/nonexistent-id-12345');
     
-    // Should show error or 404 message
-    await expect(page.locator('text=/not found|404/i')).toBeVisible();
+    await expect(page.locator('text=/404|introuvable|not found|perdu/i')).toBeVisible({ timeout: 10000 });
   });
 
   test('should change page size', async ({ page }) => {
     await page.goto('/');
     
-    // Select page size
-    const limitSelect = page.locator('select[aria-label="Per page"]');
-    if (await limitSelect.isVisible()) {
-      await limitSelect.selectOption('12');
-      
-      // URL should update
+    const limitSelect = page.locator('select[aria-label="Par page"], select[aria-label="Per page"]');
+    if (await limitSelect.first().isVisible()) {
+      await limitSelect.first().selectOption('12');
       await expect(page).toHaveURL(/limit=12/);
     }
   });

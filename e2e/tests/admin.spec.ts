@@ -1,30 +1,30 @@
 import { test, expect } from '@playwright/test';
 
+async function loginAsAdmin(page: import('@playwright/test').Page) {
+  await page.goto('/auth/login');
+  await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible({ timeout: 15000 });
+  await page.getByLabel(/adresse email|email/i).fill('admin@cinenoir.local');
+  await page.getByLabel(/mot de passe|password/i).fill('Admin1234');
+  await page.click('button[type="submit"]');
+  await page.waitForTimeout(1500);
+}
+
 test.describe('Admin Features', () => {
   test.beforeEach(async ({ page }) => {
-    // Login as admin
-    await page.goto('/auth/login');
-    await page.fill('input[type="email"]', 'admin@cinenoir.local');
-    await page.fill('input[type="password"]', 'Admin1234');
-    await page.click('button[type="submit"]');
-    await page.waitForTimeout(1500);
+    await loginAsAdmin(page);
   });
 
   test('should access admin dashboard', async ({ page }) => {
     await page.goto('/admin');
     
-    // Should show dashboard
-    await expect(page.locator('text=/dashboard|control|platform/i')).toBeVisible();
-    
-    // Should show KPIs
-    await expect(page.locator('text=/total movies|total users/i')).toBeVisible();
+    await expect(page.locator('text=/contrôle|dashboard|platform/i')).toBeVisible();
+    await expect(page.locator('text=/total films|total utilisateurs|total movies|total users/i')).toBeVisible();
   });
 
   test('should create new movie', async ({ page }) => {
     await page.goto('/admin/movies');
     
-    // Click add movie button
-    const addBtn = page.locator('button:has-text(/add|new|create/i)').first();
+    const addBtn = page.locator('button:has-text(/ajouter|add|new|create/i)').first();
     if (await addBtn.isVisible()) {
       await addBtn.click();
       await page.waitForTimeout(500);
