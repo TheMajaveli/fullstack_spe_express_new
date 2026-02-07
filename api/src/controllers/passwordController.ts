@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { forgotPassword, resetPassword, updatePassword } from "../services/authService";
+import type { AuthedRequest } from "../middlewares/authenticate";
 
 export async function forgotPasswordController(req: Request, res: Response, next: NextFunction) {
   try {
@@ -21,10 +22,10 @@ export async function resetPasswordController(req: Request, res: Response, next:
   }
 }
 
-export async function updatePasswordController(req: Request, res: Response, next: NextFunction) {
+export async function updatePasswordController(req: AuthedRequest, res: Response, next: NextFunction) {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user!.sub;
+    const userId = req.auth!.userId;
     
     await updatePassword({ userId, currentPassword, newPassword });
     res.json({ success: true, message: "Mot de passe mis à jour avec succès" });
