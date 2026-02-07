@@ -43,7 +43,12 @@ describe("categories", () => {
   });
 
   test("POST /categories creates category (admin only)", async () => {
+    // INSERT then SELECT
     dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "cat-new", name: "Horror", createdAt: "2024-01-01T00:00:00.000Z" }],
+      [],
+    ]);
 
     const res = await request(app)
       .post("/categories")
@@ -72,7 +77,12 @@ describe("categories", () => {
   });
 
   test("PUT /categories/:id updates category", async () => {
+    // UPDATE then SELECT
     dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+    dbMock.execute.mockResolvedValueOnce([
+      [{ id: "c1", name: "Thriller", createdAt: "2024-01-01T00:00:00.000Z" }],
+      [],
+    ]);
 
     const res = await request(app)
       .put("/categories/c1")

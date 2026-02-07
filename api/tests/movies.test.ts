@@ -15,10 +15,10 @@ describe("movies", () => {
   });
 
   test("GET /movies supports catalog query params", async () => {
-    // Mock: count query
+    // Mock: count query (execute)
     dbMock.execute.mockResolvedValueOnce([[{ total: 1 }], []]);
-    // Mock: data query
-    dbMock.execute.mockResolvedValueOnce([
+    // Mock: data query (query)
+    dbMock.query.mockResolvedValueOnce([
       [
         {
           id: "m1",
@@ -80,10 +80,10 @@ describe("movies", () => {
   });
 
   test("GET /movies supports pagination", async () => {
-    // Mock: count query
+    // Mock: count query (execute)
     dbMock.execute.mockResolvedValueOnce([[{ total: 20 }], []]);
-    // Mock: data query
-    dbMock.execute.mockResolvedValueOnce([
+    // Mock: data query (query)
+    dbMock.query.mockResolvedValueOnce([
       [
         {
           id: "m1",
@@ -109,10 +109,10 @@ describe("movies", () => {
   });
 
   test("GET /movies supports sorting by title", async () => {
-    // Mock: count query
+    // Mock: count query (execute)
     dbMock.execute.mockResolvedValueOnce([[{ total: 2 }], []]);
-    // Mock: data query
-    dbMock.execute.mockResolvedValueOnce([
+    // Mock: data query (query)
+    dbMock.query.mockResolvedValueOnce([
       [
         {
           id: "m1",
@@ -144,17 +144,17 @@ describe("movies", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(dbMock.execute).toHaveBeenCalledWith(
+    expect(dbMock.query).toHaveBeenCalledWith(
       expect.stringContaining("ORDER BY m.title ASC"),
       expect.any(Array)
     );
   });
 
   test("GET /movies supports custom limit parameter", async () => {
-    // Mock: count query
+    // Mock: count query (execute)
     dbMock.execute.mockResolvedValueOnce([[{ total: 30 }], []]);
-    // Mock: data query (limit 12)
-    dbMock.execute.mockResolvedValueOnce([
+    // Mock: data query (query, limit 12)
+    dbMock.query.mockResolvedValueOnce([
       Array.from({ length: 12 }, (_, i) => ({
         id: `m${i}`,
         title: `Movie ${i}`,
@@ -177,38 +177,17 @@ describe("movies", () => {
   });
 
   test("GET /movies handles invalid page gracefully", async () => {
-    // Mock: count query
-    dbMock.execute.mockResolvedValueOnce([[{ total: 10 }], []]);
-    // Mock: data query
-    dbMock.execute.mockResolvedValueOnce([
-      [
-        {
-          id: "m1",
-          title: "Movie 1",
-          description: "x",
-          year: 2020,
-          ratingAvg: 8.0,
-          posterUrl: "p",
-          duration: "1h",
-          director: "Dir",
-          categoryName: null,
-        },
-      ],
-      [],
-    ]);
-
-    const res = await request(app).get("/movies?page=0"); // Invalid page
-
-    // Service should default to page 1
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
+    // page=0 fails validation (min 1) → 400
+    const res = await request(app).get("/movies?page=0");
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
   });
 
   test("GET /movies returns empty array when no movies match", async () => {
-    // Mock: count query
+    // Mock: count query (execute)
     dbMock.execute.mockResolvedValueOnce([[{ total: 0 }], []]);
-    // Mock: data query
-    dbMock.execute.mockResolvedValueOnce([[], []]);
+    // Mock: data query (query)
+    dbMock.query.mockResolvedValueOnce([[], []]);
 
     const res = await request(app).get("/movies?q=nonexistentmovie");
 
