@@ -8,6 +8,7 @@ import { Mail, Lock, User, ShieldCheck } from 'lucide-react';
 import { Button, Input, Card, useToast } from '../components/UI';
 import { api } from '../services/api';
 import { useStore } from '../store';
+import { logger } from '../utils/logger';
 
 const registerSchema = z.object({
   username: z.string().min(3, 'Le nom d\'utilisateur doit contenir au moins 3 caractères'),
@@ -38,9 +39,11 @@ export const RegisterPage: React.FC = () => {
     try {
       const result = await api.auth.register(data.email, data.username, data.password);
       setAuth(result);
+      logger.info('Registration successful', { userId: result.user.id });
       toast('Compte créé avec succès');
       navigate('/');
-    } catch (err) {
+    } catch (err: any) {
+      logger.error('Registration failed', { message: err?.message });
       toast('Échec de l\'inscription', 'error');
     } finally {
       setIsLoading(false);

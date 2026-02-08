@@ -1,5 +1,5 @@
-
 import { Movie, User, CatalogParams } from "../types";
+import { logger } from "../utils/logger";
 
 type ApiSuccess<T> = { success: true; data: T };
 type ApiError = { success: false; error: { message: string; code?: string; details?: any } };
@@ -31,6 +31,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>;
   if (!("success" in json) || json.success !== true) {
     const err = (json as ApiError).error?.message || `Request failed (${res.status})`;
+    logger.error(err, { path, status: res.status });
     throw new Error(err);
   }
   return json.data;
@@ -45,15 +46,21 @@ async function requestWithRefresh<T>(path: string, init?: RequestInit): Promise<
       const raw = localStorage.getItem("cinenoir-v2-storage");
       const refreshToken = raw ? JSON.parse(raw)?.state?.refreshToken : null;
       if (refreshToken) {
-        const refreshed = await requestJson<{ accessToken: string }>("/auth/refresh", {
-          method: "POST",
-          body: JSON.stringify({ refreshToken }),
-        });
-        // Persist new accessToken back into zustand storage shape
-        const parsed = JSON.parse(raw);
-        parsed.state.accessToken = refreshed.accessToken;
-        localStorage.setItem("cinenoir-v2-storage", JSON.stringify(parsed));
-        return await requestJson<T>(path, init);
+        try {
+          const refreshed = await requestJson<{ accessToken: string }>("/auth/refresh", {
+            method: "POST",
+            body: JSON.stringify({ refreshToken }),
+          });
+          // Persist new accessToken back into zustand storage shape
+          const parsed = JSON.parse(raw!);
+          parsed.state.accessToken = refreshed.accessToken;
+          localStorage.setItem("cinenoir-v2-storage", JSON.stringify(parsed));
+          logger.warn("Token refreshed, retrying request", { path });
+          return await requestJson<T>(path, init);
+        } catch (refreshErr: any) {
+          logger.error("Token refresh failed", { path, message: refreshErr?.message });
+          throw e;
+        }
       }
     }
     throw e;

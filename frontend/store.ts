@@ -1,7 +1,7 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AuthState, User, UserRole } from './types';
+import { logger } from './utils/logger';
 
 interface AppStore extends AuthState {
   theme: 'dark' | 'light';
@@ -26,7 +26,12 @@ export const useStore = create<AppStore>()(
         isAuthenticated: !!data.accessToken || state.isAuthenticated 
       })),
       
-      logout: () => set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+      logout: () => {
+        set((state) => {
+          if (state.user) logger.info('User logged out', { userId: state.user.id });
+          return { ...state, user: null, accessToken: null, refreshToken: null, isAuthenticated: false };
+        });
+      },
       
       updateUser: (updatedUser) => set((state) => ({
         user: state.user ? { ...state.user, ...updatedUser } : null

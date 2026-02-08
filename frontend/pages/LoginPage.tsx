@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { api } from '../services/api';
 import { Button, Input } from '../components/DesignSystem';
+import { logger } from '../utils/logger';
 
 const schema = z.object({
   email: z.string().email('Adresse email invalide'),
@@ -21,9 +22,15 @@ export const LoginPage = () => {
   });
 
   const onSubmit = async (data: any) => {
-    const res = await api.auth.login(data.email, data.password);
-    setAuth(res);
-    navigate('/');
+    try {
+      const res = await api.auth.login(data.email, data.password);
+      setAuth(res);
+      logger.info('Login successful', { userId: res.user.id });
+      navigate('/');
+    } catch (err: any) {
+      logger.error('Login failed', { message: err?.message });
+      throw err;
+    }
   };
 
   return (
