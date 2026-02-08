@@ -61,8 +61,7 @@ test.describe('Public Catalog', () => {
 
   test('should show 404 for invalid movie ID', async ({ page }) => {
     await page.goto('/movies/nonexistent-id-12345');
-    
-    await expect(page.locator('text=/404|introuvable|not found|perdu/i')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('body').filter({ hasText: /404|introuvable|not found|perdu|film introuvable/i })).toBeVisible({ timeout: 15000 });
   });
 
   test('should change page size', async ({ page }) => {

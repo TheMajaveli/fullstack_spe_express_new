@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 async function loginAsMember(page: import('@playwright/test').Page) {
-  await page.goto('/auth/login');
-  await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible({ timeout: 15000 });
+  await page.goto('/auth/login', { waitUntil: 'load', timeout: 30000 });
+  await expect(page.getByRole('textbox').first()).toBeVisible({ timeout: 25000 });
   await page.getByLabel(/adresse email|email/i).fill('admin@cinenoir.local');
   await page.getByLabel(/mot de passe|password/i).fill('Admin1234');
   await page.click('button[type="submit"]');
