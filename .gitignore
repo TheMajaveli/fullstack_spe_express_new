@@ -30,5 +30,8 @@ frontend/.env.local
 frontend/node_modules/
 frontend/dist/
 
-# Documentation
-*.md
+# Documentation (on garde README et docs/ versionnés)
+# *.md
+!README.md
+!docs/
+!docs/*.md
