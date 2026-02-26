@@ -9,7 +9,20 @@ export async function listMoviesController(req: Request, res: Response, next: Ne
     const sort = sortRaw === "newest" || sortRaw === "rating" || sortRaw === "title" ? sortRaw : undefined;
     const page = typeof req.query.page === "string" ? Number(req.query.page) : undefined;
     const rating = typeof req.query.rating === "string" ? Number(req.query.rating) : undefined;
-    const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+    let limit: number | undefined;
+    const rawLimit = req.query.limit;
+    const limitStr = Array.isArray(rawLimit) ? rawLimit[0] : rawLimit;
+    if (typeof limitStr === "string") {
+      const n = parseInt(limitStr, 10);
+      if (Number.isFinite(n) && n >= 1 && n <= 50) limit = n;
+    }
+    if (limit === undefined && req.originalUrl) {
+      const match = req.originalUrl.match(/[?&]limit=(\d+)/);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (Number.isFinite(n) && n >= 1 && n <= 50) limit = n;
+      }
+    }
 
     const data = await listMovies({
       q,
@@ -17,9 +30,10 @@ export async function listMoviesController(req: Request, res: Response, next: Ne
       sort,
       page: Number.isFinite(page) ? page : undefined,
       rating: Number.isFinite(rating) ? rating : undefined,
-      limit: Number.isFinite(limit) ? limit : undefined,
+      limit,
     });
 
+    res.setHeader("X-Catalog-Limit", String(data.data.length));
     return res.json({ success: true, data });
   } catch (e) {
     return next(e);

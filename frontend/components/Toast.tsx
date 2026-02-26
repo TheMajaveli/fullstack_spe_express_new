@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { X, CheckCircle, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Toast {
   id: string;
@@ -14,6 +15,7 @@ interface ToastContextType {
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation();
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -32,10 +34,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed top-20 right-4 z-[200] space-y-2">
+      <div className="fixed top-20 right-4 z-[200] space-y-2" role="region" aria-label="Notifications" aria-live="polite">
         {toasts.map((toast) => (
           <div
             key={toast.id}
+            role="status"
             className={`min-w-[300px] max-w-md p-4 rounded-lg border shadow-lg animate-in slide-in-from-right ${
               toast.type === 'success'
                 ? 'bg-emerald-950/90 border-emerald-800 text-emerald-100'
@@ -55,8 +58,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               <p className="flex-1 text-sm font-medium">{toast.message}</p>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-zinc-400 hover:text-white transition-colors shrink-0"
-                aria-label="Fermer"
+                className="text-zinc-400 hover:text-white transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded"
+                aria-label={t('toast.close')}
               >
                 <X size={16} />
               </button>

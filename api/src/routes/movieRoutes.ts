@@ -15,7 +15,7 @@ const movieListValidators = [
   query("rating").optional().isNumeric().withMessage("La note doit être un nombre"),
   query("sort").optional().isIn(["newest", "rating", "title"]).withMessage("Option de tri invalide"),
   query("page").optional().isInt({ min: 1 }).withMessage("Le numéro de page doit être un entier positif"),
-  query("limit").optional().isInt({ min: 1, max: 50 }).withMessage("La limite doit être comprise entre 1 et 50"),
+  query("limit").optional().isString().withMessage("La limite doit être une chaîne").trim(),
 ];
 
 movieRoutes.get("/", movieListValidators, validate, listMoviesController);

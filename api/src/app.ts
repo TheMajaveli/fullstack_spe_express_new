@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
 
+import { db } from "./database/connection";
 import { errorHandler } from "./middlewares/errorHandler";
 import { authRoutes } from "./routes/authRoutes";
 import { movieRoutes } from "./routes/movieRoutes";
@@ -29,9 +30,23 @@ export function createApp() {
     legacyHeaders: false,
   });
 
-  // Health
-  app.get("/health", (_req, res) => {
-    res.json({ ok: true });
+  // Health (includes DB check to verify connection and database)
+  app.get("/health", async (_req, res) => {
+    try {
+      const [rows] = await db.query("SELECT DATABASE() as db, COUNT(*) as movieCount FROM movies");
+      const info = (rows as any[])[0];
+      res.json({
+        ok: true,
+        database: info?.db ?? "unknown",
+        movieCount: Number(info?.movieCount ?? 0),
+      });
+    } catch (e: any) {
+      res.status(503).json({
+        ok: false,
+        error: "Database unreachable",
+        message: e?.message ?? String(e),
+      });
+    }
   });
 
   app.use("/auth", authLimiter, authRoutes);

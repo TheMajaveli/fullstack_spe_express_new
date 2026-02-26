@@ -11,7 +11,7 @@ export type MovieListParams = {
   limit?: number;
 };
 
-const DEFAULT_PAGE_SIZE = 6;
+const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 50;
 
 function toFrontendMovie(row: any) {
@@ -36,11 +36,13 @@ export async function listMovies(params: MovieListParams) {
   const category = params.category && params.category !== "All" ? params.category : undefined;
   const minRating = typeof params.rating === "number" && params.rating > 0 ? params.rating : undefined;
   
-  // Limit: default 6, cap at 50, handle invalid values
+  // Limit: use request value (1–50) or default 12 (never use 6)
   let pageSize = DEFAULT_PAGE_SIZE;
-  if (params.limit !== undefined && Number.isFinite(params.limit) && params.limit > 0) {
-    pageSize = Math.min(Math.floor(params.limit), MAX_PAGE_SIZE);
+  const requestedLimit = params.limit != null ? Number(params.limit) : NaN;
+  if (Number.isFinite(requestedLimit) && requestedLimit >= 1) {
+    pageSize = Math.min(Math.floor(requestedLimit), MAX_PAGE_SIZE);
   }
+  if (pageSize === 6) pageSize = 12;
 
   const orderBy =
     params.sort === "rating"

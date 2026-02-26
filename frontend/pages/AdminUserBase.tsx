@@ -10,6 +10,8 @@ import { api } from '../services/api';
 export const AdminUserBase: React.FC = () => {
   const { user } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   if (user?.role !== UserRole.ADMIN) return <Navigate to="/" />;
 
@@ -21,6 +23,12 @@ export const AdminUserBase: React.FC = () => {
   const filteredUsers = users.filter((u: any) =>
     u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   return (
@@ -73,7 +81,7 @@ export const AdminUserBase: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((u: any) => (
+                  paginatedUsers.map((u: any) => (
                     <tr key={u.id} className="hover:bg-zinc-900/40 transition-colors">
                       <td className="px-4 lg:px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -128,7 +136,7 @@ export const AdminUserBase: React.FC = () => {
               </div>
             ) : (
               <div className="p-4 space-y-4">
-                {filteredUsers.map((u: any) => (
+                {paginatedUsers.map((u: any) => (
                   <div key={u.id} className="p-4 border border-zinc-800 rounded-lg bg-zinc-900/30 space-y-3">
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-sm font-bold shrink-0">
@@ -164,8 +172,28 @@ export const AdminUserBase: React.FC = () => {
             )}
           </div>
 
-          <div className="p-4 border-t border-zinc-800 text-zinc-500 text-xs text-center">
-            Affichage de {filteredUsers.length} sur {users.length} utilisateurs
+          <div className="p-4 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-zinc-500 text-xs">
+            <p>Affichage de {paginatedUsers.length} sur {filteredUsers.length} utilisateurs • Page {currentPage} sur {totalPages || 1}</p>
+            {totalPages > 1 && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                >
+                  Précédent
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                >
+                  Suivant
+                </Button>
+              </div>
+            )}
           </div>
           </Card>
     </div>

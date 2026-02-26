@@ -3,11 +3,22 @@ import { HttpError } from "../middlewares/errorHandler";
 import { randomUUID } from "crypto";
 
 export async function listCategories() {
-  const [rows] = await db.execute("SELECT id, name, createdAt FROM categories ORDER BY name ASC");
+  const [rows] = await db.execute(`
+    SELECT 
+      c.id, 
+      c.name, 
+      c.createdAt,
+      COUNT(mc.movieId) as movieCount
+    FROM categories c
+    LEFT JOIN movie_categories mc ON c.id = mc.categoryId
+    GROUP BY c.id, c.name, c.createdAt
+    ORDER BY c.name ASC
+  `);
   return (rows as any[]).map((c) => ({ 
     id: c.id, 
     name: c.name,
-    createdAt: c.createdAt 
+    createdAt: c.createdAt,
+    movieCount: Number(c.movieCount) || 0
   }));
 }
 

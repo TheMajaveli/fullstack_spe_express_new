@@ -39,6 +39,7 @@ export const useAdminDashboardData = () => {
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => api.admin.getStats(),
+    refetchInterval: 10000, // Refresh every 10 seconds
   });
 
   // Fetch movies for top rated

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
+import { FALLBACK_POSTER_URL } from '../utils/constants';
 import { Card, Button, Input, Badge, useToast, Skeleton } from '../components/UI';
 import { MovieFormModal } from '../components/MovieFormModal';
 import { Movie } from '../types';
@@ -13,10 +14,11 @@ export const AdminMovies: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-movies', searchTerm],
-    queryFn: () => api.movies.list({ search: searchTerm, page: 1 }),
+    queryKey: ['admin-movies', searchTerm, currentPage],
+    queryFn: () => api.movies.list({ search: searchTerm, page: currentPage, limit: 10 }),
   });
 
   const { data: categories = [] } = useQuery({
@@ -115,7 +117,7 @@ export const AdminMovies: React.FC = () => {
                   <td className="px-4 lg:px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-14 rounded bg-zinc-800 overflow-hidden shrink-0">
-                        <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" />
+                        <img src={movie.posterUrl || FALLBACK_POSTER_URL} alt={movie.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
                       </div>
                       <div className="overflow-hidden min-w-0">
                         <p className="font-bold truncate">{movie.title}</p>
@@ -163,7 +165,7 @@ export const AdminMovies: React.FC = () => {
                 <div key={movie.id} className="p-4 border border-zinc-800 rounded-lg bg-zinc-900/30 space-y-4">
                   <div className="flex items-start gap-4">
                     <div className="w-20 h-28 rounded bg-zinc-800 overflow-hidden shrink-0">
-                      <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" />
+                      <img src={movie.posterUrl || FALLBACK_POSTER_URL} alt={movie.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
                     </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <div>
@@ -203,10 +205,28 @@ export const AdminMovies: React.FC = () => {
 
         {/* Pagination */}
         <div className="p-4 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-zinc-500 text-xs">
-           <p className="text-center sm:text-left">Affichage de 1 à {data?.data.length || 0} sur {data?.total || 0} entrées</p>
+           <p className="text-center sm:text-left">
+             Affichage de {data?.data.length || 0} sur {data?.total || 0} films • Page {currentPage} sur {data?.totalPages || 1}
+           </p>
            <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-none" disabled>Précédent</Button>
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-none" disabled>Suivant</Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1 sm:flex-none" 
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                Précédent
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1 sm:flex-none" 
+                disabled={currentPage === (data?.totalPages || 1)}
+                onClick={() => setCurrentPage(p => Math.min(data?.totalPages || 1, p + 1))}
+              >
+                Suivant
+              </Button>
            </div>
         </div>
       </Card>

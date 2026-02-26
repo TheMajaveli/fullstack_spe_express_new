@@ -18,6 +18,7 @@ interface Category {
   id: string;
   name: string;
   createdAt: string;
+  movieCount?: number;
 }
 
 export const AdminCategories: React.FC = () => {
@@ -25,11 +26,20 @@ export const AdminCategories: React.FC = () => {
   const toast = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.categories.list(),
   });
+
+  // Pagination
+  const totalPages = Math.ceil(categories.length / itemsPerPage);
+  const paginatedCategories = categories.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const {
     register,
@@ -126,6 +136,7 @@ export const AdminCategories: React.FC = () => {
             <thead className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-800">
               <tr>
                 <th className="px-4 lg:px-6 py-4">Nom</th>
+                <th className="px-4 lg:px-6 py-4">Films</th>
                 <th className="px-4 lg:px-6 py-4">Créée le</th>
                 <th className="px-4 lg:px-6 py-4 text-right">Actions</th>
               </tr>
@@ -147,15 +158,18 @@ export const AdminCategories: React.FC = () => {
                 ))
               ) : categories.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 lg:px-6 py-12 text-center text-zinc-500">
+                  <td colSpan={4} className="px-4 lg:px-6 py-12 text-center text-zinc-500">
                     Aucune catégorie trouvée. Créez votre première catégorie.
                   </td>
                 </tr>
               ) : (
-                categories.map((category: Category) => (
+                paginatedCategories.map((category: Category) => (
                   <tr key={category.id} className="hover:bg-zinc-900/40 transition-colors group">
                     <td className="px-4 lg:px-6 py-4">
                       <p className="font-bold">{category.name}</p>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 text-zinc-400">
+                      <span className="text-sm">{category.movieCount || 0} film{(category.movieCount || 0) > 1 ? 's' : ''}</span>
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-zinc-400 text-xs">
                       {new Date(category.createdAt).toLocaleDateString()}
@@ -207,13 +221,13 @@ export const AdminCategories: React.FC = () => {
             </div>
           ) : (
             <div className="p-4 space-y-3">
-              {categories.map((category: Category) => (
+              {paginatedCategories.map((category: Category) => (
                 <div key={category.id} className="p-4 border border-zinc-800 rounded-lg bg-zinc-900/30 space-y-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-base">{category.name}</h3>
                       <p className="text-xs text-zinc-400 mt-1">
-                        Créée le {new Date(category.createdAt).toLocaleDateString()}
+                        {category.movieCount || 0} film{(category.movieCount || 0) > 1 ? 's' : ''} • Créée le {new Date(category.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -241,6 +255,31 @@ export const AdminCategories: React.FC = () => {
           )}
         </div>
       </Card>
+
+      {/* Pagination */}
+      {!isLoading && categories.length > itemsPerPage && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          >
+            Précédent
+          </Button>
+          <span className="text-sm text-zinc-400 px-4">
+            Page {currentPage} sur {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          >
+            Suivant
+          </Button>
+        </div>
+      )}
 
       {/* Category Form Modal */}
       <Modal

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Button, Skeleton } from './UI';
 import { api } from '../services/api';
+import { FALLBACK_POSTER_URL } from '../utils/constants';
 
 interface HistoryListProps {
   historyIds: string[];
@@ -44,7 +45,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ historyIds }) => {
         >
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <div className="w-12 h-12 rounded bg-zinc-800 overflow-hidden shrink-0">
-              <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" />
+              <img src={movie.posterUrl || FALLBACK_POSTER_URL} alt={movie.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold truncate">{movie.title}</p>

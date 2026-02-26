@@ -76,7 +76,8 @@ export const api = {
       if (params.minRating != null) qs.set("rating", String(params.minRating));
       if (params.sort) qs.set("sort", params.sort);
       if (params.page) qs.set("page", String(params.page));
-      if (params.limit) qs.set("limit", String(params.limit));
+      const limit = Math.min(50, Math.max(1, Number(params.limit) || 12));
+      qs.set("limit", String(limit));
 
       const data = await requestWithRefresh<{ data: Movie[]; total: number; totalPages: number }>(
         `/movies?${qs.toString()}`,
