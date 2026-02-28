@@ -264,7 +264,7 @@ export const api = {
         averageRating: number;
         recentUsers: Array<{ id: string; username: string; email: string; role: string; createdAt: string }>;
         recentMovies: Array<{ id: string; title: string; year: number; ratingAvg: number; createdAt: string }>;
-        topRatedMovies: Array<{ id: string; title: string; ratingAvg: number; year: number }>;
+        topRatedMovies: Array<{ id: string; title: string; ratingAvg: number; year: number; ratingsCount: number }>;
         categoryDistribution: Array<{ categoryName: string; movieCount: number }>;
         userActivity: Array<{ date: string; registrations: number; ratings: number; watchlistAdds: number }>;
       }>("/admin/stats", {

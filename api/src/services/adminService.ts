@@ -11,7 +11,7 @@ export interface AdminStats {
   averageRating: number;
   recentUsers: Array<{ id: string; username: string; email: string; role: string; createdAt: string }>;
   recentMovies: Array<{ id: string; title: string; year: number; ratingAvg: number; createdAt: string }>;
-  topRatedMovies: Array<{ id: string; title: string; ratingAvg: number; year: number }>;
+  topRatedMovies: Array<{ id: string; title: string; ratingAvg: number; year: number; ratingsCount: number }>;
   categoryDistribution: Array<{ categoryName: string; movieCount: number }>;
   userActivity: Array<{ date: string; registrations: number; ratings: number; watchlistAdds: number }>;
 }
@@ -44,10 +44,16 @@ export async function getAdminStats(): Promise<AdminStats> {
     "SELECT id, title, year, ratingAvg, createdAt FROM movies ORDER BY createdAt DESC LIMIT 5"
   );
 
-  // Top rated movies (top 5)
-  const [topRatedRows] = await db.execute(
-    "SELECT id, title, ratingAvg, year FROM movies WHERE ratingAvg > 0 ORDER BY ratingAvg DESC LIMIT 5"
-  );
+  // Top rated movies (top 5) with ratings count
+  const [topRatedRows] = await db.execute(`
+    SELECT m.id, m.title, m.ratingAvg, m.year, COUNT(r.movieId) as ratingsCount
+    FROM movies m
+    LEFT JOIN ratings r ON m.id = r.movieId
+    WHERE m.ratingAvg > 0
+    GROUP BY m.id, m.title, m.ratingAvg, m.year
+    ORDER BY m.ratingAvg DESC
+    LIMIT 5
+  `);
 
   // Category distribution
   const [categoryDistRows] = await db.execute(`
@@ -109,10 +115,21 @@ export async function getAdminStats(): Promise<AdminStats> {
     activityMap.set(date, { ...existing, watchlistAdds: row.watchlistAdds || 0 });
   });
 
-  const userActivity = Array.from(activityMap.entries()).map(([date, data]) => ({
-    date,
-    ...data,
-  }));
+  // Fill all 7 days (chart expects one entry per day)
+  const last7Days: Array<{ date: string; registrations: number; ratings: number; watchlistAdds: number }> = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split("T")[0];
+    const existing = activityMap.get(dateStr) || { registrations: 0, ratings: 0, watchlistAdds: 0 };
+    last7Days.push({
+      date: dateStr,
+      registrations: existing.registrations,
+      ratings: existing.ratings,
+      watchlistAdds: existing.watchlistAdds,
+    });
+  }
+  const userActivity = last7Days;
 
   return {
     totalUsers: Number(totalUsers),
@@ -142,6 +159,7 @@ export async function getAdminStats(): Promise<AdminStats> {
       title: m.title,
       ratingAvg: parseFloat(m.ratingAvg || 0),
       year: m.year,
+      ratingsCount: Number(m.ratingsCount || 0),
     })),
     categoryDistribution: (categoryDistRows as any[]).map((c: any) => ({
       categoryName: c.categoryName || 'Uncategorized',
