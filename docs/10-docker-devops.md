@@ -34,7 +34,15 @@ Les variables (port, DB, JWT, etc.) sont définies dans `docker-compose.yml` pou
 ### Volumes
 
 - **mysql_data** : persistance des données MySQL.
-- **api_uploads** : persistance des fichiers uploadés (affiches) par l’API.
+- **api_uploads** : persistance des fichiers uploadés (affiches) par l’API. Fichiers dans le volume Docker (pas dans api/uploads sur l’hôte). Lister : `docker exec cinenoir_api ls -la /app/uploads`.
+
+### Reconstruire après des changements de code
+
+Après modification du code : `docker compose up -d --build`. Sans cache : `docker compose build --no-cache` puis `docker compose up -d`. Après rebuild frontend, faire un hard refresh (Cmd+Shift+R).
+
+### Nettoyage des images orphelines
+
+`docker image prune`
 
 ### Développement avec Docker
 
