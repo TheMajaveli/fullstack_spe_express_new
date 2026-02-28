@@ -8,10 +8,13 @@ export async function createMovieController(req: Request, res: Response, next: N
     const posterUrl =
       req.file ? `/uploads/${path.basename((req.file as any).path)}` : typeof body.posterUrl === "string" ? body.posterUrl : "";
 
+    const rawYear = body.year != null && body.year !== "" ? Number(body.year) : NaN;
+    const year = !isNaN(rawYear) ? rawYear : new Date().getFullYear();
+
     const movie = await createMovie({
       title: body.title,
       description: body.description,
-      year: Number(body.year),
+      year,
       duration: body.duration,
       director: body.director,
       category: body.category,
