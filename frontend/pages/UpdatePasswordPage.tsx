@@ -80,6 +80,7 @@ export const UpdatePasswordPage = () => {
             type="password" 
             placeholder="••••••••"
             icon={<Lock size={18} />}
+            passwordToggle
             error={errors.currentPassword?.message as string}
             {...register('currentPassword')}
           />
@@ -90,6 +91,7 @@ export const UpdatePasswordPage = () => {
               type="password" 
               placeholder="••••••••"
               icon={<Lock size={18} />}
+              passwordToggle
               error={errors.newPassword?.message as string}
               {...register('newPassword')}
             />
@@ -98,6 +100,7 @@ export const UpdatePasswordPage = () => {
               type="password" 
               placeholder="••••••••"
               icon={<Lock size={18} />}
+              passwordToggle
               error={errors.confirmPassword?.message as string}
               {...register('confirmPassword')}
             />

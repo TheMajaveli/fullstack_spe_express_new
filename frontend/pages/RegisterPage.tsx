@@ -76,6 +76,7 @@ export const RegisterPage: React.FC = () => {
             label="Mot de passe"
             type="password"
             icon={<Lock size={18} />}
+            passwordToggle
             error={errors.password?.message}
             {...register('password')}
           />
@@ -83,6 +84,7 @@ export const RegisterPage: React.FC = () => {
             label="Confirmer le mot de passe"
             type="password"
             icon={<ShieldCheck size={18} />}
+            passwordToggle
             error={errors.confirmPassword?.message}
             {...register('confirmPassword')}
           />

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button as ShadcnButton } from '@/components/ui/button';
 import { Input as ShadcnInput } from '@/components/ui/input';
 import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton';
@@ -43,39 +43,57 @@ export const Button: React.FC<ButtonProps> = ({
   </ShadcnButton>
 );
 
-// --- INPUT (shadcn with label/error/icon, forwardRef for react-hook-form) ---
+// --- INPUT (shadcn with label/error/icon, optional password toggle) ---
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  passwordToggle?: boolean;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, icon, className = '', ...props }, ref) => (
-    <div className="w-full space-y-1.5">
-      {label && (
-        <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">{icon}</div>
+  ({ label, error, icon, passwordToggle, type: typeProp, className = '', ...props }, ref) => {
+    const [visible, setVisible] = useState(false);
+    const type = passwordToggle ? (visible ? 'text' : 'password') : typeProp;
+    return (
+      <div className="w-full space-y-1.5">
+        {label && (
+          <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+            {label}
+          </label>
         )}
-        <ShadcnInput
-          ref={ref}
-          className={cn(
-            'bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-accent/50',
-            icon && 'pl-10',
-            error && 'border-red-500',
-            className
+        <div className="relative">
+          {icon && (
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">{icon}</div>
           )}
-          {...props}
-        />
+          <ShadcnInput
+            ref={ref}
+            type={type}
+            className={cn(
+              'bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-accent/50',
+              icon && 'pl-10',
+              passwordToggle && 'pr-10',
+              error && 'border-red-500',
+              className
+            )}
+            {...props}
+          />
+          {passwordToggle && (
+            <button
+              type="button"
+              onClick={() => setVisible((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+              tabIndex={-1}
+              aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          )}
+        </div>
+        {error && <p className="text-[10px] text-red-500 font-medium">{error}</p>}
       </div>
-      {error && <p className="text-[10px] text-red-500 font-medium">{error}</p>}
-    </div>
-  )
+    );
+  }
 );
 Input.displayName = 'Input';
 
