@@ -9,7 +9,7 @@ import { Button, Skeleton, Modal } from '../components/DesignSystem';
 import { RatingModal } from '../components/RatingModal';
 import { useToast } from '../components/UI';
 import { useStore } from '../store';
-import { FALLBACK_POSTER_URL } from '../utils/constants';
+import { FALLBACK_POSTER_URL, getPosterUrl } from '../utils/constants';
 
 export const MovieDetailPage: React.FC = () => {
   const { id } = useParams();
@@ -70,13 +70,13 @@ export const MovieDetailPage: React.FC = () => {
       {/* Cinematic Hero */}
       <div className="relative h-[70vh] w-full">
         <div className="absolute inset-0">
-          <img src={movie.posterUrl || FALLBACK_POSTER_URL} alt="" className="w-full h-full object-cover blur-2xl opacity-20 scale-110" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
+          <img src={getPosterUrl(movie.posterUrl)} alt="" className="w-full h-full object-cover blur-2xl opacity-20 scale-110" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-cinema-black to-cinema-black" />
         </div>
 
         <div className="relative h-full max-w-[1400px] mx-auto px-6 flex flex-col md:flex-row items-center gap-12 pt-20">
           <div className="w-64 md:w-80 shrink-0 poster-shadow rounded-sm overflow-hidden border border-cinema-border animate-fade-up">
-            <img src={movie.posterUrl || FALLBACK_POSTER_URL} alt={movie.title} className="w-full aspect-poster object-cover" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
+            <img src={getPosterUrl(movie.posterUrl)} alt={movie.title} className="w-full aspect-poster object-cover" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
           </div>
 
           <div className="flex-1 space-y-8 animate-fade-up">

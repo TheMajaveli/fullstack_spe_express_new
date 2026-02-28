@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Heart, Clock, Settings, User as UserIcon, LogOut, ChevronRight } from 'lucide-react';
 import { useStore } from '../store';
 import { api } from '../services/api';
-import { FALLBACK_POSTER_URL } from '../utils/constants';
+import { FALLBACK_POSTER_URL, getPosterUrl } from '../utils/constants';
 import { Card, Badge, Button, Skeleton } from '../components/UI';
 import { HistoryList } from '../components/HistoryList';
 import { Link, Navigate } from 'react-router-dom';
@@ -98,7 +98,7 @@ export const AccountPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {moviesData.map((movie: any) => (
                   <Link key={movie.id} to={`/movies/${movie.id}`} className="group relative aspect-video rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900">
-                    <img src={movie.posterUrl || FALLBACK_POSTER_URL} alt={movie.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
+                    <img src={getPosterUrl(movie.posterUrl)} alt={movie.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
                     <div className="absolute bottom-4 left-4">
                       <h4 className="font-bold">{movie.title}</h4>

@@ -1,11 +1,11 @@
-import React from 'react';
-import { Loader2, Check, Star } from 'lucide-react';
+import React, { useState } from 'react';
+import { Loader2, Check, Star, Eye, EyeOff } from 'lucide-react';
 import { Button as ShadcnButton } from '@/components/ui/button';
 import { Input as ShadcnInput } from '@/components/ui/input';
 import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { FALLBACK_POSTER_URL } from '../utils/constants';
+import { FALLBACK_POSTER_URL, getPosterUrl } from '../utils/constants';
 
 const variantMap = {
   primary: 'default',
@@ -65,7 +65,7 @@ export const PosterCard: React.FC<{
     )}
   >
     <img
-      src={movie.posterUrl || FALLBACK_POSTER_URL}
+      src={getPosterUrl(movie.posterUrl)}
       alt={movie.title}
       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"
       loading="lazy"
@@ -98,28 +98,47 @@ export const PosterCard: React.FC<{
   </div>
 );
 
-// --- INPUT (shadcn-based with label/error) ---
+// --- INPUT (shadcn-based with label/error, optional password toggle) ---
 export const Input = React.forwardRef<
   HTMLInputElement,
-  React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string }
->(({ label, error, className = '', ...props }, ref) => (
-  <div className="space-y-1.5 w-full">
-    {label && (
-      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</label>
-    )}
-    <ShadcnInput
-      ref={ref}
-      className={cn(
-        'bg-transparent border-zinc-800 focus-visible:ring-accent/50',
-        error && 'border-accent focus-visible:ring-accent'
+  React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; passwordToggle?: boolean }
+>(({ label, error, passwordToggle, type: typeProp, className = '', ...props }, ref) => {
+  const [visible, setVisible] = useState(false);
+  const type = passwordToggle ? (visible ? 'text' : 'password') : typeProp;
+  return (
+    <div className="space-y-1.5 w-full">
+      {label && (
+        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</label>
       )}
-      {...props}
-    />
-    {error && (
-      <p className="text-[10px] font-bold text-accent uppercase tracking-wider">{error}</p>
-    )}
-  </div>
-));
+      <div className="relative">
+        <ShadcnInput
+          ref={ref}
+          type={type}
+          className={cn(
+            'bg-transparent border-zinc-800 focus-visible:ring-accent/50',
+            passwordToggle && 'pr-10',
+            error && 'border-accent focus-visible:ring-accent'
+          )}
+          {...props}
+        />
+        {passwordToggle && (
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+            tabIndex={-1}
+            aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+          >
+            {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="text-[10px] font-bold text-accent uppercase tracking-wider">{error}</p>
+      )}
+    </div>
+  );
+});
 
 // --- SKELETON (shadcn) ---
 export const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => (

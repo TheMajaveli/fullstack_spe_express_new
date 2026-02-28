@@ -5,7 +5,7 @@ import { Search, Star, Play, Info, ChevronLeft, ChevronRight, ListOrdered, Infin
 import { api } from '../services/api';
 import { Button, Skeleton, PosterCard } from '../components/DesignSystem';
 import { CatalogParams } from '../types';
-import { FALLBACK_POSTER_URL } from '../utils/constants';
+import { FALLBACK_POSTER_URL, getPosterUrl } from '../utils/constants';
 import { useTranslation } from 'react-i18next';
 
 const FALLBACK_CATEGORIES = ['Tous', 'Science-Fiction', 'Action', 'Drame', 'Policier', 'Horreur', 'Romance'];
@@ -159,19 +159,18 @@ export const CatalogPage: React.FC = () => {
         <div
           className="flex h-full transition-transform duration-700 ease-out"
           style={{
-            width: featuredMovies.length ? `${featuredMovies.length * 100}%` : '100%',
-            transform: `translateX(-${featuredMovies.length ? currentFeaturedIndex * (100 / featuredMovies.length) : 0}%)`,
+            width: featuredMovies.length ? `${featuredMovies.length * 100}vw` : '100vw',
+            transform: `translateX(-${featuredMovies.length ? currentFeaturedIndex * 100 : 0}vw)`,
           }}
         >
           {(featuredMovies.length ? featuredMovies : [null]).map((movie, index) => (
             <div
               key={movie?.id ?? index}
-              className="relative flex-shrink-0 h-full"
-              style={{ width: `${100 / Math.max(featuredMovies.length, 1)}%` }}
+              className="relative flex-shrink-0 h-full w-screen min-w-[100vw]"
             >
               <div className="absolute inset-0">
                 <img
-                  src={movie?.posterUrl || FALLBACK_POSTER_URL}
+                  src={getPosterUrl(movie?.posterUrl)}
                   className="w-full h-full object-cover scale-105"
                   alt={movie ? `${movie.title} arrière-plan` : 'Arrière-plan héros'}
                   onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }}

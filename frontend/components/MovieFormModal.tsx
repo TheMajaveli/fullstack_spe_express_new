@@ -6,6 +6,7 @@ import { Modal } from './DesignSystem';
 import { Input, Button, useToast } from './UI';
 import { api } from '../services/api';
 import { Movie } from '../types';
+import { getPosterUrl } from '../utils/constants';
 import { Upload, X } from 'lucide-react';
 
 const movieSchema = z.object({
@@ -65,7 +66,7 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
       setValue('duration', movie.duration);
       setValue('director', movie.director);
       setValue('category', movie.category);
-      setPosterPreview(movie.posterUrl);
+      setPosterPreview(getPosterUrl(movie.posterUrl));
     } else {
       reset();
       setPosterFile(null);
@@ -120,7 +121,7 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
                   type="button"
                   onClick={() => {
                     setPosterFile(null);
-                    setPosterPreview(movie?.posterUrl || '');
+                    setPosterPreview(movie ? getPosterUrl(movie.posterUrl) : '');
                   }}
                   className="absolute top-1 right-1 w-6 h-6 bg-black/80 rounded-full flex items-center justify-center text-white hover:bg-black"
                   aria-label="Retirer l'affiche"
