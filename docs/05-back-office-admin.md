@@ -31,3 +31,12 @@ Fichiers principaux : `api/src/routes/movieRoutes.ts`, `api/src/controllers/admi
   - Utilisateurs : `AdminUserBase.tsx` — liste des utilisateurs et informations associées.
 
 Formulaires avancés avec **react-hook-form** et **Zod** ; toasts pour le retour succès/erreur.
+
+## Dashboard (détails)
+
+- **KPIs / charts** : alimentés par `GET /admin/stats` (frontend : `useAdminDashboardData.ts`).
+- **Activité récente** : affiche les derniers ajouts (films / users). Pour les activités “film”, la liste affiche la **jaquette** quand elle est disponible.
+
+## Bouton “voir trailer” (liste films)
+
+Dans `AdminMovies.tsx`, l’action **trailer** ouvre une modale avec une iframe YouTube si `trailerUrl` est renseigné et reconnu (`youtubeEmbedUrl`).

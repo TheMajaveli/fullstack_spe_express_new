@@ -10,3 +10,27 @@ export function getPosterUrl(posterUrl: string | undefined): string {
   if (posterUrl.startsWith('http://') || posterUrl.startsWith('https://')) return posterUrl;
   return `${API_URL}${posterUrl.startsWith('/') ? '' : '/'}${posterUrl}`;
 }
+
+/** Note affichée (API / DB peut renvoyer null ou une valeur non numérique). */
+export function formatMovieRating(rating: unknown): string {
+  const n = Number(rating);
+  return Number.isFinite(n) ? n.toFixed(1) : '—';
+}
+
+/** Extrait l’ID vidéo YouTube pour iframe embed (watch, youtu.be, shorts). */
+export function youtubeEmbedUrl(trailerUrl: string | undefined | null): string | null {
+  if (!trailerUrl?.trim()) return null;
+  const u = trailerUrl
+    .trim()
+    .replace(/^http:\/\//i, "https://")
+    .replace(/m\.youtube\.com/i, "www.youtube.com");
+  const watch = u.match(/[?&]v=([\w-]{11})/);
+  if (watch) return `https://www.youtube.com/embed/${watch[1]}`;
+  const short = u.match(/youtu\.be\/([\w-]{11})/);
+  if (short) return `https://www.youtube.com/embed/${short[1]}`;
+  const shorts = u.match(/youtube\.com\/shorts\/([\w-]{11})/);
+  if (shorts) return `https://www.youtube.com/embed/${shorts[1]}`;
+  const embedded = u.match(/youtube\.com\/embed\/([\w-]{11})/);
+  if (embedded) return `https://www.youtube.com/embed/${embedded[1]}`;
+  return null;
+}

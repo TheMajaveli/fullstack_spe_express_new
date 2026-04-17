@@ -17,5 +17,6 @@ Toute la documentation du projet est en français. Elle est organisée par thèm
 | [09 - Tests](09-tests.md) | Tests unitaires API, E2E Playwright, CI |
 | [10 - Docker et DevOps](10-docker-devops.md) | Docker Compose, CI/CD GitHub Actions |
 | [11 - Référence API](11-api.md) | Liste des endpoints et paramètres |
+| [12 - Tokens & persistance](12-tokens-persistance.md) | Gestion des tokens (JWT/refresh) et persistance de session (localStorage) |
 
 **Pour commencer** : lire [01 - Démarrage](01-demarrage.md), puis le document correspondant à la fonctionnalité qui vous intéresse.

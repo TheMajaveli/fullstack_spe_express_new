@@ -55,7 +55,7 @@ test.describe('Public Catalog', () => {
       await expect(page).toHaveURL(/\/movies\/.+/);
       
       // Detail page should show movie info
-      await expect(page.locator('h1')).toBeVisible();
+      await expect(page.locator('h1').first()).toBeVisible();
     }
   });
 

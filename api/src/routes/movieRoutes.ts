@@ -13,9 +13,13 @@ const movieListValidators = [
   query("q").optional().isString().trim().isLength({ max: 200 }).withMessage("Requête de recherche trop longue"),
   query("category").optional().isString().trim(),
   query("rating").optional().isNumeric().withMessage("La note doit être un nombre"),
-  query("sort").optional().isIn(["newest", "rating", "title"]).withMessage("Option de tri invalide"),
+  query("sort")
+    .optional()
+    .isIn(["newest", "oldest", "rating", "rating_desc", "rating_asc", "title"])
+    .withMessage("Option de tri invalide"),
   query("page").optional().isInt({ min: 1 }).withMessage("Le numéro de page doit être un entier positif"),
   query("limit").optional().isInt({ min: 1, max: 50 }).withMessage("La limite doit être entre 1 et 50").toInt(),
+  query("lang").optional().isIn(["en", "fr"]).withMessage("La langue doit être en ou fr"),
 ];
 
 movieRoutes.get("/", movieListValidators, validate, listMoviesController);

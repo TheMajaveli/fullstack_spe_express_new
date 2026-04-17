@@ -13,7 +13,11 @@
     "db:seed": "ts-node --transpile-only src/database/seed.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "smoke:openai": "ts-node --transpile-only scripts/smoke-openai.ts",
+    "smoke:recommendations": "ts-node --transpile-only scripts/smoke-recommendations.ts",
+    "movies:fill-fr": "ts-node --transpile-only scripts/fill-movie-descriptions-fr.ts",
+    "movies:fill-fr-gtx": "ts-node --transpile-only scripts/fill-movie-descriptions-fr-gtx.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +26,7 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "express-validator": "^7.3.1",
@@ -40,6 +45,7 @@
     "@types/node": "^25.0.9",
     "@types/supertest": "^6.0.3",
     "eslint": "^9.39.2",
+    "google-translate-api-x": "^10.7.2",
     "jest": "^30.2.0",
     "prettier": "^3.8.0",
     "supertest": "^7.2.2",

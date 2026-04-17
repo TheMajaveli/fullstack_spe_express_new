@@ -228,4 +228,109 @@ describe("user space", () => {
     expect(res.body.success).toBe(false);
     expect(res.body.error.code).toBe("NOT_FOUND");
   });
+
+  test("GET /user/recommendations returns 401 without token", async () => {
+    const res = await request(app).get("/user/recommendations");
+    expect(res.status).toBe(401);
+  });
+
+  test("GET /user/recommendations returns rules-ranked movies from DB when OpenAI is unset", async () => {
+    delete process.env.OPENAI_API_KEY;
+    dbMock.execute.mockResolvedValueOnce([[{ id: "u1", email: "user@test.com", username: "user", role: "USER" }], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.query.mockResolvedValueOnce([
+      [
+        {
+          id: "m2",
+          title: "Beta",
+          description: "Desc",
+          year: 2021,
+          ratingAvg: 9,
+          posterUrl: "",
+          duration: "2h",
+          director: "D1",
+          categoryName: "Action",
+        },
+        {
+          id: "m3",
+          title: "Alpha",
+          description: "Desc",
+          year: 2020,
+          ratingAvg: 7,
+          posterUrl: "",
+          duration: "1h",
+          director: "D2",
+          categoryName: "Drama",
+        },
+      ],
+      [],
+    ]);
+
+    const res = await request(app).get("/user/recommendations").set("Authorization", `Bearer ${userToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.source).toBe("rules");
+    expect(res.body.data.movies.map((m: { id: string }) => m.id)).toEqual(["m2", "m3"]);
+    expect(res.body.data.movies[0].title).toBe("Beta");
+    expect(typeof res.body.data.insight).toBe("string");
+    expect(res.body.data.mood).toBe("neutral");
+
+    dbMock.execute.mockResolvedValueOnce([[{ id: "u1", email: "user@test.com", username: "user", role: "USER" }], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.execute.mockResolvedValueOnce([[], []]);
+    dbMock.query.mockResolvedValueOnce([
+      [
+        {
+          id: "m2",
+          title: "Beta",
+          description: "Desc",
+          year: 2021,
+          ratingAvg: 9,
+          posterUrl: "",
+          duration: "2h",
+          director: "D1",
+          categoryName: "Action",
+        },
+        {
+          id: "m3",
+          title: "Alpha",
+          description: "Desc",
+          year: 2020,
+          ratingAvg: 7,
+          posterUrl: "",
+          duration: "1h",
+          director: "D2",
+          categoryName: "Drama",
+        },
+      ],
+      [],
+    ]);
+
+    const resLimit1 = await request(app)
+      .get("/user/recommendations?limit=1")
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(resLimit1.status).toBe(200);
+    expect(resLimit1.body.data.movies).toHaveLength(1);
+    expect(resLimit1.body.data.movies[0].id).toBe("m2");
+  });
+
+  test("GET /user/recommendations validates mood query", async () => {
+    const res = await request(app)
+      .get("/user/recommendations?mood=not_a_real_mood")
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test("GET /user/recommendations validates limit query", async () => {
+    const res = await request(app)
+      .get("/user/recommendations?limit=99")
+      .set("Authorization", `Bearer ${userToken}`);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
 });

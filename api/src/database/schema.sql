@@ -50,17 +50,20 @@ CREATE TABLE IF NOT EXISTS movies (
   id VARCHAR(255) PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   description TEXT,
+  descriptionFr TEXT NULL,
   releaseDate DATETIME NOT NULL,
   year INT NOT NULL,
   duration VARCHAR(50),
   director VARCHAR(255),
   ratingAvg FLOAT DEFAULT 0,
   posterUrl VARCHAR(500),
+  trailerUrl VARCHAR(512) NULL,
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_title (title),
   INDEX idx_year (year),
-  INDEX idx_ratingAvg (ratingAvg)
+  INDEX idx_ratingAvg (ratingAvg),
+  UNIQUE KEY uq_movies_title_year (title(191), year)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Movie categories junction table

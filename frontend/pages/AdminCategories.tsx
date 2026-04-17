@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { Card, Button, Input, useToast, Skeleton } from '../components/UI';
 import { Modal } from '../components/DesignSystem';
@@ -8,11 +9,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
-const categorySchema = z.object({
-  name: z.string().min(1, 'Le nom de la catégorie est requis'),
-});
-
-type CategoryFormData = z.infer<typeof categorySchema>;
+type CategoryFormData = { name: string };
 
 interface Category {
   id: string;
@@ -22,6 +19,7 @@ interface Category {
 }
 
 export const AdminCategories: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,17 +27,21 @@ export const AdminCategories: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const categorySchema = useMemo(
+    () =>
+      z.object({
+        name: z.string().min(1, t('validation.categoryNameRequired')),
+      }),
+    [t]
+  );
+
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.categories.list(),
   });
 
-  // Pagination
   const totalPages = Math.ceil(categories.length / itemsPerPage);
-  const paginatedCategories = categories.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedCategories = categories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const {
     register,
@@ -56,12 +58,12 @@ export const AdminCategories: React.FC = () => {
     mutationFn: (name: string) => api.categories.create(name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast('Catégorie créée avec succès', 'success');
+      toast(t('admin.categories.toastCreated'), 'success');
       setIsModalOpen(false);
       reset();
     },
     onError: (error: any) => {
-      toast(error.message || 'Échec de création de la catégorie', 'error');
+      toast(error.message || t('admin.categories.toastCreateError'), 'error');
     },
   });
 
@@ -69,13 +71,13 @@ export const AdminCategories: React.FC = () => {
     mutationFn: ({ id, name }: { id: string; name: string }) => api.categories.update(id, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast('Catégorie mise à jour avec succès', 'success');
+      toast(t('admin.categories.toastUpdated'), 'success');
       setIsModalOpen(false);
       setEditingCategory(null);
       reset();
     },
     onError: (error: any) => {
-      toast(error.message || 'Échec de mise à jour de la catégorie', 'error');
+      toast(error.message || t('admin.categories.toastUpdateError'), 'error');
     },
   });
 
@@ -83,10 +85,10 @@ export const AdminCategories: React.FC = () => {
     mutationFn: (id: string) => api.categories.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      toast('Catégorie supprimée avec succès', 'success');
+      toast(t('admin.categories.toastDeleted'), 'success');
     },
     onError: (error: any) => {
-      toast(error.message || 'Échec de suppression de la catégorie', 'error');
+      toast(error.message || t('admin.categories.toastDeleteError'), 'error');
     },
   });
 
@@ -103,7 +105,7 @@ export const AdminCategories: React.FC = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ? Cela peut affecter les films utilisant cette catégorie.')) {
+    if (confirm(t('admin.categories.deleteConfirm'))) {
       deleteMutation.mutate(id);
     }
   };
@@ -116,29 +118,30 @@ export const AdminCategories: React.FC = () => {
     }
   };
 
+  const movieCountLabel = (n: number) => t('admin.categories.movieCount', { count: n });
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Catégories</h1>
-          <p className="text-sm md:text-base text-zinc-500">Gérer les catégories de films.</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t('admin.categories.title')}</h1>
+          <p className="text-sm md:text-base text-zinc-500">{t('admin.categories.subtitle')}</p>
         </div>
         <Button className="gap-2 w-full sm:w-auto" onClick={handleCreate}>
-          <Plus size={18} /> <span className="hidden sm:inline">Ajouter une catégorie</span><span className="sm:hidden">Ajouter</span>
+          <Plus size={18} /> <span className="hidden sm:inline">{t('admin.categories.add')}</span>
+          <span className="sm:hidden">{t('admin.categories.addShort')}</span>
         </Button>
       </div>
 
       <Card className="overflow-hidden">
-        {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 border-b border-zinc-800">
               <tr>
-                <th className="px-4 lg:px-6 py-4">Nom</th>
-                <th className="px-4 lg:px-6 py-4">Films</th>
-                <th className="px-4 lg:px-6 py-4">Créée le</th>
-                <th className="px-4 lg:px-6 py-4 text-right">Actions</th>
+                <th className="px-4 lg:px-6 py-4">{t('admin.categories.colName')}</th>
+                <th className="px-4 lg:px-6 py-4">{t('admin.categories.colMovies')}</th>
+                <th className="px-4 lg:px-6 py-4">{t('admin.categories.colCreated')}</th>
+                <th className="px-4 lg:px-6 py-4 text-right">{t('admin.categories.colActions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
@@ -159,7 +162,7 @@ export const AdminCategories: React.FC = () => {
               ) : categories.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 lg:px-6 py-12 text-center text-zinc-500">
-                    Aucune catégorie trouvée. Créez votre première catégorie.
+                    {t('admin.categories.emptyTable')}
                   </td>
                 </tr>
               ) : (
@@ -169,7 +172,7 @@ export const AdminCategories: React.FC = () => {
                       <p className="font-bold">{category.name}</p>
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-zinc-400">
-                      <span className="text-sm">{category.movieCount || 0} film{(category.movieCount || 0) > 1 ? 's' : ''}</span>
+                      <span className="text-sm">{movieCountLabel(category.movieCount || 0)}</span>
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-zinc-400 text-xs">
                       {new Date(category.createdAt).toLocaleDateString()}
@@ -181,7 +184,7 @@ export const AdminCategories: React.FC = () => {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => handleEdit(category)}
-                          aria-label="Modifier la catégorie"
+                          aria-label={t('admin.categories.editAria')}
                         >
                           <Edit size={14} />
                         </Button>
@@ -190,7 +193,7 @@ export const AdminCategories: React.FC = () => {
                           size="icon"
                           className="h-8 w-8 text-red-500 hover:bg-red-500/10"
                           onClick={() => handleDelete(category.id)}
-                          aria-label="Supprimer la catégorie"
+                          aria-label={t('admin.categories.deleteAria')}
                         >
                           <Trash2 size={14} />
                         </Button>
@@ -203,7 +206,6 @@ export const AdminCategories: React.FC = () => {
           </table>
         </div>
 
-        {/* Mobile Card View */}
         <div className="md:hidden">
           {isLoading ? (
             <div className="p-4 space-y-4">
@@ -216,8 +218,8 @@ export const AdminCategories: React.FC = () => {
             </div>
           ) : categories.length === 0 ? (
             <div className="p-8 text-center text-zinc-500">
-              <p>Aucune catégorie trouvée.</p>
-              <p className="text-sm mt-2">Créez votre première catégorie pour commencer.</p>
+              <p>{t('admin.categories.emptyMobile')}</p>
+              <p className="text-sm mt-2">{t('admin.categories.emptyMobileHint')}</p>
             </div>
           ) : (
             <div className="p-4 space-y-3">
@@ -227,26 +229,24 @@ export const AdminCategories: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-base">{category.name}</h3>
                       <p className="text-xs text-zinc-400 mt-1">
-                        {category.movieCount || 0} film{(category.movieCount || 0) > 1 ? 's' : ''} • Créée le {new Date(category.createdAt).toLocaleDateString()}
+                        {movieCountLabel(category.movieCount || 0)} •{' '}
+                        {t('admin.categories.createdOn', {
+                          date: new Date(category.createdAt).toLocaleDateString(),
+                        })}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-zinc-800">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 gap-2" 
-                      onClick={() => handleEdit(category)}
-                    >
-                      <Edit size={14} /> Modifier
+                    <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={() => handleEdit(category)}>
+                      <Edit size={14} /> {t('common.edit')}
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex-1 gap-2 text-red-500 border-red-500/50 hover:bg-red-500/10" 
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 gap-2 text-red-500 border-red-500/50 hover:bg-red-500/10"
                       onClick={() => handleDelete(category.id)}
                     >
-                      <Trash2 size={14} /> Supprimer
+                      <Trash2 size={14} /> {t('common.delete')}
                     </Button>
                   </div>
                 </div>
@@ -256,32 +256,23 @@ export const AdminCategories: React.FC = () => {
         </div>
       </Card>
 
-      {/* Pagination */}
       {!isLoading && categories.length > itemsPerPage && (
         <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-          >
-            Précédent
+          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+            {t('common.previous')}
           </Button>
-          <span className="text-sm text-zinc-400 px-4">
-            Page {currentPage} sur {totalPages}
-          </span>
+          <span className="text-sm text-zinc-400 px-4">{t('admin.categories.pageOf', { page: currentPage, pages: totalPages })}</span>
           <Button
             variant="outline"
             size="sm"
             disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
           >
-            Suivant
+            {t('common.next')}
           </Button>
         </div>
       )}
 
-      {/* Category Form Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
@@ -289,14 +280,14 @@ export const AdminCategories: React.FC = () => {
           setEditingCategory(null);
           reset();
         }}
-        title={editingCategory ? 'Modifier la catégorie' : 'Créer une catégorie'}
+        title={editingCategory ? t('admin.categories.modalEditTitle') : t('admin.categories.modalCreateTitle')}
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <Input
-            label="Nom de la catégorie"
+            label={t('admin.categories.nameLabel')}
             {...register('name')}
             error={errors.name?.message}
-            placeholder="ex: Science-Fiction, Action, Drame"
+            placeholder={t('admin.categories.namePlaceholder')}
             autoFocus
           />
 
@@ -311,14 +302,10 @@ export const AdminCategories: React.FC = () => {
               }}
               className="flex-1"
             >
-              Annuler
+              {t('common.cancel')}
             </Button>
-            <Button
-              type="submit"
-              isLoading={createMutation.isPending || updateMutation.isPending}
-              className="flex-1"
-            >
-              {editingCategory ? 'Mettre à jour' : 'Créer'} la catégorie
+            <Button type="submit" isLoading={createMutation.isPending || updateMutation.isPending} className="flex-1">
+              {editingCategory ? t('admin.categories.submitUpdate') : t('admin.categories.submitCreate')}
             </Button>
           </div>
         </form>

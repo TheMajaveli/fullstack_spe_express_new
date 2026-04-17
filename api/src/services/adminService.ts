@@ -10,7 +10,14 @@ export interface AdminStats {
   totalHistoryItems: number;
   averageRating: number;
   recentUsers: Array<{ id: string; username: string; email: string; role: string; createdAt: string }>;
-  recentMovies: Array<{ id: string; title: string; year: number; ratingAvg: number; createdAt: string }>;
+  recentMovies: Array<{
+    id: string;
+    title: string;
+    year: number;
+    ratingAvg: number;
+    createdAt: string;
+    posterUrl: string | null;
+  }>;
   topRatedMovies: Array<{ id: string; title: string; ratingAvg: number; year: number; ratingsCount: number }>;
   categoryDistribution: Array<{ categoryName: string; movieCount: number }>;
   userActivity: Array<{ date: string; registrations: number; ratings: number; watchlistAdds: number }>;
@@ -41,7 +48,7 @@ export async function getAdminStats(): Promise<AdminStats> {
 
   // Recent movies (last 5)
   const [recentMovieRows] = await db.execute(
-    "SELECT id, title, year, ratingAvg, createdAt FROM movies ORDER BY createdAt DESC LIMIT 5"
+    "SELECT id, title, year, ratingAvg, posterUrl, createdAt FROM movies ORDER BY createdAt DESC LIMIT 5"
   );
 
   // Top rated movies (top 5) with ratings count
@@ -152,6 +159,7 @@ export async function getAdminStats(): Promise<AdminStats> {
       title: m.title,
       year: m.year,
       ratingAvg: parseFloat(m.ratingAvg || 0),
+      posterUrl: m.posterUrl != null ? String(m.posterUrl) : null,
       createdAt: m.createdAt,
     })),
     topRatedMovies: (topRatedRows as any[]).map((m: any) => ({

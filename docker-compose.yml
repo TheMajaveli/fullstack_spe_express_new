@@ -42,10 +42,14 @@ services:
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       RUN_MIGRATE: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     ports:
       - "4000:4000"
     volumes:
       - api_uploads:/app/uploads
+      # Seed dans le conteneur : lit /movies.json (fichier à la racine du projet sur l’hôte)
+      - ./movies.json:/movies.json:ro
     depends_on:
       mysql:
         condition: service_healthy

@@ -1,17 +1,22 @@
 import React, { useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { Search, Star, Play, Info, ChevronLeft, ChevronRight, ListOrdered, Infinity } from 'lucide-react';
-import { api } from '../services/api';
+import { Star, Play, Info, ChevronLeft, ChevronRight, ListOrdered, Infinity } from 'lucide-react';
+import { api, apiMovieContentLang } from '../services/api';
 import { Button, Skeleton, PosterCard } from '../components/DesignSystem';
 import { CatalogParams } from '../types';
 import { FALLBACK_POSTER_URL, getPosterUrl } from '../utils/constants';
 import { useTranslation } from 'react-i18next';
+import { useStore } from '../store';
 
-const FALLBACK_CATEGORIES = ['Tous', 'Science-Fiction', 'Action', 'Drame', 'Policier', 'Horreur', 'Romance'];
+// Must match seeded DB category names (api/src/database/seed.ts)
+const FALLBACK_CATEGORIES = ['All', 'Sci-Fi', 'Action', 'Drama', 'Crime', 'Horror', 'Romance'];
 
 export const CatalogPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const watchHistory = useStore((s) => s.user?.history);
+  const watchedIdSet = useMemo(() => new Set(watchHistory ?? []), [watchHistory]);
+  const movieLang = apiMovieContentLang(i18n.language);
   const [searchParams, setSearchParams] = useSearchParams();
   const infiniteSentinelRef = useRef<HTMLDivElement>(null);
 
@@ -21,7 +26,7 @@ export const CatalogPage: React.FC = () => {
     const limit = Number.isFinite(limitNum) && limitNum >= 1 && limitNum <= 50 ? limitNum : 12;
     return {
       search: searchParams.get('q') || '',
-      category: searchParams.get('category') || 'Tous',
+      category: searchParams.get('category') || 'All',
       minRating: Number(searchParams.get('rating')) || 0,
       sort: (searchParams.get('sort') as any) || 'newest',
       page: Math.max(1, Number(searchParams.get('page')) || 1),
@@ -43,18 +48,19 @@ export const CatalogPage: React.FC = () => {
   }, [searchParams, setSearchParams]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['movies', params.search, params.category, params.sort, params.page, params.limit],
-    queryFn: () => api.movies.list({ ...params, limit: params.limit }),
+    queryKey: ['movies', params.search, params.category, params.sort, params.page, params.limit, movieLang],
+    queryFn: () => api.movies.list({ ...params, limit: params.limit, lang: movieLang }),
     enabled: viewMode === 'pagination',
   });
 
   const infiniteQuery = useInfiniteQuery({
-    queryKey: ['movies', 'infinite', params.search, params.category, params.sort, params.limit],
+    queryKey: ['movies', 'infinite', params.search, params.category, params.sort, params.limit, movieLang],
     queryFn: async ({ pageParam }) => {
       const result = await api.movies.list({
         ...params,
         page: pageParam as number,
         limit: params.limit,
+        lang: movieLang,
       });
       return result;
     },
@@ -95,7 +101,8 @@ export const CatalogPage: React.FC = () => {
   const totalCount = viewMode === 'infinite' ? (infiniteQuery.data?.pages?.[0]?.total ?? 0) : (data?.total ?? 0);
   const totalPages = viewMode === 'infinite' ? (infiniteQuery.data?.pages?.[0]?.totalPages ?? 0) : (data?.totalPages ?? 0);
   const isEmpty = viewMode === 'infinite' ? infiniteAllMovies.length === 0 && !infiniteQuery.isLoading : (data?.data?.length ?? 0) === 0;
-  const showPagination = viewMode === 'pagination' && data && data.totalPages > 1;
+  const showPaginationBar = viewMode === 'pagination' && data && !isEmpty;
+  const safeTotalPages = Math.max(1, totalPages || 1);
   const toggleViewMode = () => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -117,16 +124,17 @@ export const CatalogPage: React.FC = () => {
   });
   const categories = useMemo(() => {
     if (categoriesList?.length) {
-      return ['Tous', ...categoriesList.map((c) => c.name)];
+      return ['All', ...categoriesList.map((c) => c.name)];
     }
     return FALLBACK_CATEGORIES;
   }, [categoriesList]);
 
   const { data: featuredData } = useQuery({
-    queryKey: ['movies', 'featured'],
-    queryFn: () => api.movies.list({ page: 1, sort: 'rating', limit: 5 }),
+    queryKey: ['movies', 'featured', movieLang],
+    queryFn: () => api.movies.list({ page: 1, sort: 'rating', limit: 5, lang: movieLang }),
   });
   const featuredMovies = featuredData?.data || [];
+
   const [currentFeaturedIndex, setCurrentFeaturedIndex] = React.useState(0);
 
   // Auto-advance carousel every 4 seconds (left to right)
@@ -142,7 +150,7 @@ export const CatalogPage: React.FC = () => {
   const updateParam = (key: string, value: string | number) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (value === undefined || value === null || value === '' || value === 'Tous' || value === 0) {
+      if (value === undefined || value === null || value === '' || value === 'All' || value === 0) {
         next.delete(key);
       } else {
         next.set(key, String(value));
@@ -153,9 +161,9 @@ export const CatalogPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-0" role="main" aria-label="Catalogue de films">
+    <div className="space-y-0" role="main" aria-label={t('catalog.mainAria')}>
       {/* Featured carousel: 5 movies, auto-advance every 4s, left to right */}
-      <section className="relative h-[85vh] w-full overflow-hidden" aria-label="Film en vedette">
+      <section className="relative h-[85vh] w-full overflow-hidden" aria-label={t('catalog.featuredCarouselAria')}>
         <div
           className="flex h-full transition-transform duration-700 ease-out"
           style={{
@@ -172,7 +180,7 @@ export const CatalogPage: React.FC = () => {
                 <img
                   src={getPosterUrl(movie?.posterUrl)}
                   className="w-full h-full object-cover scale-105"
-                  alt={movie ? `${movie.title} arrière-plan` : 'Arrière-plan héros'}
+                  alt={movie ? t('catalog.heroBackdropAlt', { title: movie.title }) : t('catalog.heroBackdropEmptyAlt')}
                   onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_POSTER_URL; }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
@@ -246,64 +254,69 @@ export const CatalogPage: React.FC = () => {
       </section>
 
       {/* Catalog Control Bar */}
-      <div id="catalog-control" className="sticky top-16 z-40 glass border-b border-cinema-border" role="search" aria-label="Filtrer le catalogue">
-        <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-8 shrink-0">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => updateParam('category', cat)}
-                className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all relative py-2 ${params.category === cat ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
-                aria-pressed={params.category === cat}
-                aria-label={t('catalog.filterBy', { category: cat })}
-              >
-                {cat}
-                {params.category === cat && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
-              </button>
-            ))}
-          </div>
-          
-          <div className="flex items-center gap-6 shrink-0 ml-8">
-            <div className="relative w-64 group">
-              <Search size={14} className="absolute left-0 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-white transition-colors" />
-              <input
-                type="search"
-                placeholder={t('catalog.searchPlaceholder')}
-                className="bg-transparent border-none text-xs font-bold pl-6 focus:outline-none w-full placeholder:text-zinc-700"
-                value={params.search}
-                onChange={(e) => updateParam('q', e.target.value)}
-                aria-label="Rechercher dans le catalogue"
-              />
-            </div>
-            <select
-              value={params.sort}
-              onChange={(e) => updateParam('sort', e.target.value)}
-              className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-zinc-500 focus:outline-none cursor-pointer hover:text-white"
-              aria-label={t('catalog.sortBy')}
+      <div id="catalog-control" className="sticky top-16 z-40 glass border-b border-cinema-border" role="search" aria-label={t('catalog.filterCatalogAria')}>
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:py-2 lg:min-h-16">
+          <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 min-w-0 lg:flex-1 lg:max-w-[min(100%,72rem)]">
+            <div
+              className="flex items-center gap-6 sm:gap-8 overflow-x-auto scrollbar-hide shrink min-w-0 border-b border-cinema-border pb-2 sm:border-b-0 sm:pb-0 sm:border-r sm:border-cinema-border sm:pr-4"
+              role="tablist"
+              aria-label={t('catalog.categoryFiltersAria')}
             >
-              <option value="newest">{t('catalog.newest')}</option>
-              <option value="rating">{t('catalog.topRated')}</option>
-              <option value="title">{t('catalog.titleAz')}</option>
-            </select>
+              {categories.map((cat) => {
+                const catLabel = cat === 'All' ? t('catalog.allCategories') : cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => updateParam('category', cat)}
+                    className={`text-[10px] font-black uppercase tracking-[0.2em] transition-all relative py-2 shrink-0 ${params.category === cat ? 'text-white' : 'text-zinc-500 hover:text-white'}`}
+                    aria-pressed={params.category === cat}
+                    aria-label={t('catalog.filterBy', { category: catLabel })}
+                  >
+                    {catLabel}
+                    {params.category === cat && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center shrink-0 sm:pl-1">
+              <label htmlFor="catalog-sort" className="sr-only">
+                {t('catalog.sortBy')}
+              </label>
+              <select
+                id="catalog-sort"
+                value={params.sort}
+                onChange={(e) => updateParam('sort', e.target.value)}
+                className="w-full sm:w-auto min-w-[10rem] bg-zinc-950/80 border border-cinema-border rounded-md px-2 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer hover:border-zinc-600"
+                aria-label={t('catalog.sortBy')}
+              >
+                <option value="newest">{t('catalog.newest')}</option>
+                <option value="oldest">{t('catalog.sortYearAsc')}</option>
+                <option value="rating">{t('catalog.topRated')}</option>
+                <option value="title">{t('catalog.titleAz')}</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 shrink-0 lg:justify-end">
             <select
               value={String(params.limit)}
               onChange={(e) => {
                 const val = e.target.value;
                 updateParam('limit', val);
               }}
-              className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-zinc-500 focus:outline-none cursor-pointer hover:text-white"
+              className="bg-zinc-950/80 border border-cinema-border rounded-md px-2 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 focus:outline-none cursor-pointer hover:text-white hover:border-zinc-600"
               aria-label={t('catalog.perPage')}
             >
-              <option value="6">6 / page</option>
-              <option value="12">12 / page</option>
-              <option value="24">24 / page</option>
-              <option value="50">50 / page</option>
+              <option value="6">{t('catalog.perPageOption', { count: 6 })}</option>
+              <option value="12">{t('catalog.perPageOption', { count: 12 })}</option>
+              <option value="24">{t('catalog.perPageOption', { count: 24 })}</option>
+              <option value="50">{t('catalog.perPageOption', { count: 50 })}</option>
             </select>
             <button
               type="button"
               onClick={toggleViewMode}
-              className={`flex items-center gap-2 px-3 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-cinema-black ${viewMode === 'infinite' ? 'text-accent bg-accent/10' : 'text-zinc-500 hover:text-white'}`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md border border-cinema-border text-[10px] font-black uppercase tracking-widest transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-cinema-black ${viewMode === 'infinite' ? 'text-accent bg-accent/10 border-accent/30' : 'text-zinc-500 hover:text-white hover:border-zinc-600'}`}
               aria-pressed={viewMode === 'infinite'}
               aria-label={viewMode === 'infinite' ? t('catalog.switchToPagination') : t('catalog.switchToInfinite')}
               title={viewMode === 'infinite' ? t('catalog.pagination') : t('catalog.scrollInfinite')}
@@ -339,7 +352,7 @@ export const CatalogPage: React.FC = () => {
                   }}
                   className="animate-in fade-in slide-in-from-bottom-4 duration-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-cinema-black rounded-lg"
                 >
-                  <PosterCard movie={movie} />
+                  <PosterCard movie={movie} watched={watchedIdSet.has(movie.id)} />
                 </Link>
               ))}
             </div>
@@ -366,23 +379,28 @@ export const CatalogPage: React.FC = () => {
             )}
 
             {/* Pagination */}
-            {showPagination && (
-              <div className="flex items-center justify-between border-t border-cinema-border pt-12">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">{data!.total} {t('catalog.filmsDiscovered')}</span>
-                <div className="flex gap-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    disabled={params.page === 1}
+            {showPaginationBar && (
+              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 border-t border-cinema-border pt-12">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600 text-center md:text-left">
+                  {data!.total} {t('catalog.filmsDiscovered')}
+                </span>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 text-center tabular-nums">
+                  {t('catalog.pageOfTotal', { current: Math.min(params.page, safeTotalPages), total: safeTotalPages })}
+                </p>
+                <div className="flex gap-4 justify-center md:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={params.page <= 1}
                     onClick={() => updateParam('page', (params.page || 1) - 1)}
                     aria-label={t('catalog.previousPage')}
                   >
                     {t('catalog.previous')}
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    disabled={params.page === totalPages}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={params.page >= safeTotalPages}
                     onClick={() => updateParam('page', (params.page || 1) + 1)}
                     aria-label={t('catalog.nextPage')}
                   >

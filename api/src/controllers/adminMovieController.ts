@@ -11,6 +11,9 @@ export async function createMovieController(req: Request, res: Response, next: N
     const rawYear = body.year != null && body.year !== "" ? Number(body.year) : NaN;
     const year = !isNaN(rawYear) ? rawYear : new Date().getFullYear();
 
+    const trailerUrl =
+      typeof body.trailerUrl === "string" && body.trailerUrl.trim() ? body.trailerUrl.trim() : null;
+
     const movie = await createMovie({
       title: body.title,
       description: body.description,
@@ -19,6 +22,7 @@ export async function createMovieController(req: Request, res: Response, next: N
       director: body.director,
       category: body.category,
       posterUrl,
+      trailerUrl,
     });
 
     return res.status(201).json({ success: true, data: movie });
@@ -34,6 +38,13 @@ export async function updateMovieController(req: Request, res: Response, next: N
     const posterUrl =
       req.file ? `/uploads/${path.basename((req.file as any).path)}` : typeof body.posterUrl === "string" ? body.posterUrl : undefined;
 
+    const trailerUrl =
+      body.trailerUrl === "" || body.trailerUrl === null
+        ? null
+        : typeof body.trailerUrl === "string"
+          ? body.trailerUrl.trim() || null
+          : undefined;
+
     const movie = await updateMovie(id, {
       title: body.title,
       description: body.description,
@@ -42,6 +53,7 @@ export async function updateMovieController(req: Request, res: Response, next: N
       director: body.director,
       category: body.category,
       posterUrl,
+      trailerUrl,
     });
 
     return res.json({ success: true, data: movie });

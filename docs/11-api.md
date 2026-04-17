@@ -15,8 +15,8 @@ Documentation synthétique des endpoints de l’API CineNoir. Toutes les répons
 
 | Méthode | Route | Description |
 |---------|--------|-------------|
-| GET | `/movies` | Liste paginée — query : `q`, `category`, `rating`, `sort` (newest \| rating \| title), `page`, `limit` (1–50) |
-| GET | `/movies/:id` | Détail d’un film par ID |
+| GET | `/movies` | Liste paginée — query : `q`, `category`, `rating`, `sort` (newest \| oldest \| rating \| title), `page`, `limit` (1–50), `lang` (fr \| en) |
+| GET | `/movies/:id` | Détail d’un film par ID — query : `lang` (fr \| en) |
 
 ## Catégories (public)
 
@@ -35,6 +35,7 @@ Toutes les routes ci-dessous nécessitent le header `Authorization: Bearer <acce
 | DELETE | `/user/watchlist/:movieId` | Retirer un film de la liste à voir |
 | POST | `/user/ratings/:movieId` | Ajouter ou modifier une note — body : `ratingNumber` (2–10), `note` (optionnel) |
 | POST | `/user/history/:movieId` | Marquer le film comme vu |
+| GET | `/user/recommendations` | Recommandations perso — query : `mood` (optionnel), `limit` (1–10), `lang` (fr \| en). Retourne `{ movies, source, insight, mood }`. Réponse servie en `Cache-Control: private, no-store` |
 
 ## Admin (protégé, rôle ADMIN uniquement)
 
@@ -55,6 +56,12 @@ Header `Authorization: Bearer <accessToken>` requis ; le middleware vérifie le 
 | POST | `/categories` | Créer une catégorie — body : `name` |
 | PUT | `/categories/:id` | Modifier une catégorie — body : `name` |
 | DELETE | `/categories/:id` | Supprimer une catégorie |
+
+### Dashboard / stats
+
+| Méthode | Route | Description |
+|---------|--------|-------------|
+| GET | `/admin/stats` | KPIs + tendances + activité récente (dashboard admin) |
 
 ## Santé
 

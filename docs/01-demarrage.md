@@ -76,7 +76,7 @@ docker compose up -d
 Au premier démarrage, les migrations sont appliquées. Pour charger les données de démo :
 
 ```bash
-docker compose exec api node dist/database/seed.js
+docker compose exec api npm run db:seed
 ```
 
 ### Option 2 : Développement en local

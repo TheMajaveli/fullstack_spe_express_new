@@ -1,9 +1,10 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight } from 'lucide-react';
 import { Button, Skeleton } from './UI';
-import { api } from '../services/api';
+import { api, apiMovieContentLang } from '../services/api';
 import { FALLBACK_POSTER_URL, getPosterUrl } from '../utils/constants';
 
 interface HistoryListProps {
@@ -11,11 +12,13 @@ interface HistoryListProps {
 }
 
 export const HistoryList: React.FC<HistoryListProps> = ({ historyIds }) => {
+  const { i18n } = useTranslation();
+  const movieLang = apiMovieContentLang(i18n.language);
   const { data: movies, isLoading } = useQuery({
-    queryKey: ['history-movies', historyIds],
+    queryKey: ['history-movies', historyIds, movieLang],
     queryFn: async () => {
       if (!historyIds.length) return [];
-      const movies = await Promise.all(historyIds.map(id => api.movies.get(id)));
+      const movies = await Promise.all(historyIds.map((id) => api.movies.get(id, movieLang)));
       return movies.filter(Boolean);
     },
     enabled: historyIds.length > 0,

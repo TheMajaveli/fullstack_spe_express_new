@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import {
@@ -6,6 +8,7 @@ import {
 } from '../utils/adminDashboardUtils';
 
 export const useAdminDashboardData = () => {
+  const { t, i18n } = useTranslation();
   const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => api.admin.getStats(),
@@ -21,18 +24,23 @@ export const useAdminDashboardData = () => {
     platformAvgRating: stats?.averageRating ?? 0,
   };
 
-  const ratingsTrend =
-    stats?.userActivity?.map((d) => ({
-      day: formatDayLabel(d.date),
-      ratings: d.ratings ?? 0,
-    })) ?? [];
+  const ratingsTrend = useMemo(
+    () =>
+      stats?.userActivity?.map((d) => ({
+        day: formatDayLabel(d.date, i18n.language),
+        ratings: d.ratings ?? 0,
+      })) ?? [],
+    [stats?.userActivity, i18n.language]
+  );
 
-  const categoryCoverage = (stats?.categoryDistribution ?? [])
-    .slice(0, 5)
-    .map((c) => ({
-      name: c.categoryName?.trim() || 'Sans catégorie',
-      value: Number(c.movieCount ?? 0),
-    }));
+  const categoryCoverage = useMemo(
+    () =>
+      (stats?.categoryDistribution ?? []).slice(0, 5).map((c) => ({
+        name: c.categoryName?.trim() || t('admin.uncategorized'),
+        value: Number(c.movieCount ?? 0),
+      })),
+    [stats?.categoryDistribution, t]
+  );
 
   const topRatedMovies =
     stats?.topRatedMovies?.map((m) => ({
@@ -43,9 +51,9 @@ export const useAdminDashboardData = () => {
       ratingsCount: m.ratingsCount ?? 0,
     })) ?? [];
 
-  const recentActivity = buildRecentActivity(
-    stats?.recentMovies,
-    stats?.recentUsers
+  const recentActivity = useMemo(
+    () => buildRecentActivity(stats?.recentMovies, stats?.recentUsers, t),
+    [stats?.recentMovies, stats?.recentUsers, t]
   );
 
   return {

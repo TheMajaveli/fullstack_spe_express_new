@@ -1,5 +1,7 @@
 # Développement local : uniquement MySQL + (optionnel) API/Front en local
-# Usage: docker compose -f docker-compose.dev.yml up -d
+# Usage: docker compose -f docker-compose.dev.yml up -d --wait
+#   (--wait attend que MySQL soit « healthy », recommandé avant db:migrate)
+# Puis: api/.env avec DB_PORT=3307, puis cd api && npm run db:migrate && npm run db:seed
 # Puis: cd api && npm run dev  et  cd frontend && npm run dev
 
 version: "3.8"

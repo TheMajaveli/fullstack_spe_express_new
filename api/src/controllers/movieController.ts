@@ -1,12 +1,21 @@
 import type { Request, Response, NextFunction } from "express";
 import { getMovie, listMovies } from "../services/movieService";
+import { movieLangFromRequest } from "../utils/movieLangFromRequest";
 
 export async function listMoviesController(req: Request, res: Response, next: NextFunction) {
   try {
     const q = typeof req.query.q === "string" ? req.query.q : undefined;
     const category = typeof req.query.category === "string" ? req.query.category : undefined;
     const sortRaw = typeof req.query.sort === "string" ? req.query.sort : undefined;
-    const sort = sortRaw === "newest" || sortRaw === "rating" || sortRaw === "title" ? sortRaw : undefined;
+    const sort =
+      sortRaw === "newest" ||
+      sortRaw === "oldest" ||
+      sortRaw === "rating" ||
+      sortRaw === "rating_desc" ||
+      sortRaw === "rating_asc" ||
+      sortRaw === "title"
+        ? sortRaw
+        : undefined;
     const page = typeof req.query.page === "string" ? Number(req.query.page) : undefined;
     const rating = typeof req.query.rating === "string" ? Number(req.query.rating) : undefined;
     let limit: number | undefined;
@@ -24,6 +33,7 @@ export async function listMoviesController(req: Request, res: Response, next: Ne
       }
     }
 
+    const lang = movieLangFromRequest(req);
     const data = await listMovies({
       q,
       category,
@@ -31,6 +41,7 @@ export async function listMoviesController(req: Request, res: Response, next: Ne
       page: Number.isFinite(page) ? page : undefined,
       rating: Number.isFinite(rating) ? rating : undefined,
       limit,
+      lang,
     });
 
     res.setHeader("X-Catalog-Limit", String(data.data.length));
@@ -42,7 +53,8 @@ export async function listMoviesController(req: Request, res: Response, next: Ne
 
 export async function getMovieController(req: Request, res: Response, next: NextFunction) {
   try {
-    const movie = await getMovie(String((req.params as any).id));
+    const lang = movieLangFromRequest(req);
+    const movie = await getMovie(String((req.params as any).id), lang);
     return res.json({ success: true, data: movie });
   } catch (e) {
     return next(e);

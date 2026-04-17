@@ -15,11 +15,13 @@ export async function getUserProfile(userId: string) {
     [userId]
   );
   const [historyRows] = await db.execute("SELECT movieId FROM history WHERE userId = ? ORDER BY seenAt DESC", [userId]);
-  const [ratingsRows] = await db.execute("SELECT movieId, ratingNumber FROM ratings WHERE userId = ?", [userId]);
+  const [ratingsRows] = await db.execute("SELECT movieId, ratingNumber, note FROM ratings WHERE userId = ?", [userId]);
 
   const ratingsMap: Record<string, number> = {};
+  const ratingNotesMap: Record<string, string> = {};
   for (const r of ratingsRows as any[]) {
     ratingsMap[r.movieId] = r.ratingNumber;
+    if (typeof r.note === "string" && r.note.trim()) ratingNotesMap[r.movieId] = r.note.trim();
   }
 
   return {
@@ -30,6 +32,7 @@ export async function getUserProfile(userId: string) {
     watchlist: (watchlistRows as any[]).map((w) => w.movieId),
     history: (historyRows as any[]).map((h) => h.movieId),
     ratings: ratingsMap,
+    ratingNotes: ratingNotesMap,
   };
 }
 

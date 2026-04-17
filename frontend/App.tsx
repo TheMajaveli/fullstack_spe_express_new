@@ -1,6 +1,6 @@
-
 import React, { useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Layout } from './components/Layout';
 import { CatalogPage } from './pages/CatalogPage';
 import { MovieDetailPage } from './pages/MovieDetailPage';
@@ -18,6 +18,22 @@ import { AdminCategories } from './pages/AdminCategories';
 import { AdminUserBase } from './pages/AdminUserBase';
 import { useStore } from './store';
 import { api } from './services/api';
+
+const NotFoundPage: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4" aria-label={t('notFound.aria')}>
+      <h1 className="text-6xl font-black">404</h1>
+      <p className="text-zinc-500 uppercase tracking-widest font-bold">{t('notFound.subtitle')}</p>
+      <Link
+        to="/"
+        className="mt-4 px-8 py-3 bg-white text-black font-bold rounded-lg hover:opacity-90 transition-opacity focus:outline focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-black"
+      >
+        {t('notFound.cta')}
+      </Link>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const { accessToken, setAuth } = useStore();
@@ -55,16 +71,7 @@ const App: React.FC = () => {
           <Route path="users" element={<AdminUserBase />} />
         </Route>
         
-        {/* Fallback */}
-        <Route path="*" element={
-          <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4" aria-label="Page introuvable">
-            <h1 className="text-6xl font-black">404</h1>
-            <p className="text-zinc-500 uppercase tracking-widest font-bold">Perdu dans l'ombre</p>
-            <Link to="/" className="mt-4 px-8 py-3 bg-white text-black font-bold rounded-lg hover:opacity-90 transition-opacity focus:outline focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-black">
-              Retour à la Lumière
-            </Link>
-          </div>
-        } />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>
   );

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Loader2, Check, Star, Eye, EyeOff } from 'lucide-react';
 import { Button as ShadcnButton } from '@/components/ui/button';
 import { Input as ShadcnInput } from '@/components/ui/input';
 import { Skeleton as ShadcnSkeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { FALLBACK_POSTER_URL, getPosterUrl } from '../utils/constants';
+import { useTranslation } from 'react-i18next';
+import { FALLBACK_POSTER_URL, formatMovieRating, getPosterUrl } from '../utils/constants';
 
 const variantMap = {
   primary: 'default',
@@ -57,13 +58,26 @@ export const PosterCard: React.FC<{
   movie: any;
   onAction?: () => void;
   className?: string;
-}> = ({ movie, onAction, className = '' }) => (
+  /** Affiche un badge « vu » (ex. film dans l’historique du membre connecté). */
+  watched?: boolean;
+}> = ({ movie, onAction, className = '', watched = false }) => {
+  const { t } = useTranslation();
+  return (
   <div
     className={cn(
       'group relative aspect-poster bg-cinema-card rounded-md overflow-hidden border border-cinema-border transition-all duration-500 hover:border-accent/50',
       className
     )}
   >
+    {watched && (
+      <span
+        className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded border border-white/25 bg-black/75 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white shadow-sm"
+        aria-label={t('posterCard.watchedBadgeAria')}
+      >
+        <Check size={10} className="text-accent shrink-0" aria-hidden />
+        {t('posterCard.watchedBadge')}
+      </span>
+    )}
     <img
       src={getPosterUrl(movie.posterUrl)}
       alt={movie.title}
@@ -78,7 +92,7 @@ export const PosterCard: React.FC<{
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 text-accent">
             <Star size={14} fill="currentColor" />
-            <span className="text-sm font-bold">{movie.rating.toFixed(1)}</span>
+            <span className="text-sm font-bold">{formatMovieRating(movie?.rating)}</span>
           </div>
           <span className="text-[10px] font-black uppercase text-zinc-500">{movie.year}</span>
         </div>
@@ -87,7 +101,7 @@ export const PosterCard: React.FC<{
         </h3>
         <div className="flex gap-1 pt-2">
           <Button variant="primary" size="xs" className="flex-1">
-            Details
+            {t('posterCard.details')}
           </Button>
           <Button variant="secondary" size="xs" className="w-8 px-0">
             <Check size={12} />
@@ -96,7 +110,8 @@ export const PosterCard: React.FC<{
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // --- INPUT (shadcn-based with label/error, optional password toggle) ---
 export const Input = React.forwardRef<
@@ -104,15 +119,18 @@ export const Input = React.forwardRef<
   React.InputHTMLAttributes<HTMLInputElement> & { label?: string; error?: string; passwordToggle?: boolean }
 >(({ label, error, passwordToggle, type: typeProp, className = '', ...props }, ref) => {
   const [visible, setVisible] = useState(false);
+  const generatedId = useId();
+  const inputId = props.id ?? generatedId;
   const type = passwordToggle ? (visible ? 'text' : 'password') : typeProp;
   return (
     <div className="space-y-1.5 w-full">
       {label && (
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</label>
+        <label htmlFor={inputId} className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{label}</label>
       )}
       <div className="relative">
         <ShadcnInput
           ref={ref}
+          id={inputId}
           type={type}
           className={cn(
             'bg-transparent border-zinc-800 focus-visible:ring-accent/50',
@@ -151,9 +169,16 @@ export const Modal: React.FC<{
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-}> = ({ isOpen, onClose, title, children }) => (
+  /** Ex. max-w-4xl pour une vidéo large */
+  contentClassName?: string;
+}> = ({ isOpen, onClose, title, children, contentClassName }) => (
   <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-    <DialogContent className="max-w-lg bg-cinema-card border-cinema-border max-h-[90vh] overflow-y-auto">
+    <DialogContent
+      className={cn(
+        'max-w-lg bg-cinema-card border-cinema-border max-h-[90vh] overflow-y-auto',
+        contentClassName
+      )}
+    >
       <DialogHeader>
         <DialogTitle className="text-lg sm:text-xl font-black uppercase tracking-tighter">
           {title}

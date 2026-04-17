@@ -1,14 +1,23 @@
 import { Router } from "express";
 import { authenticate } from "../middlewares/authenticate";
 import { validate } from "../middlewares/validate";
-import { body, param } from "express-validator";
-import { deleteWatchlist, getMe, postHistory, postRating, postWatchlist } from "../controllers/userController";
+import { body, param, query } from "express-validator";
+import { deleteWatchlist, getMe, getRecommendations, postHistory, postRating, postWatchlist } from "../controllers/userController";
+import { RECOMMENDATION_MOODS } from "../services/recommendationMoods";
 
 export const userRoutes = Router();
 
 userRoutes.use(authenticate);
 
 userRoutes.get("/me", getMe);
+userRoutes.get(
+  "/recommendations",
+  query("mood").optional().isIn([...RECOMMENDATION_MOODS]).withMessage("mood invalide"),
+  query("lang").optional().isIn(["en", "fr"]).withMessage("lang invalide"),
+  query("limit").optional().isInt({ min: 1, max: 10 }).withMessage("limit invalide"),
+  validate,
+  getRecommendations
+);
 
 userRoutes.post(
   "/watchlist/:movieId",

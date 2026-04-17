@@ -1,11 +1,28 @@
-import { Movie, User, CatalogParams } from "../types";
+import { Movie, User, CatalogParams, PersonalizedRecommendations, RecommendationMoodKey } from "../types";
 import { logger } from "../utils/logger";
+import { useStore } from "../store";
 
 type ApiSuccess<T> = { success: true; data: T };
 type ApiError = { success: false; error: { message: string; code?: string; details?: any } };
 type ApiResponse<T> = ApiSuccess<T> | ApiError;
 
 const API_URL = (import.meta as any).env?.VITE_API_URL || "http://localhost:4000";
+
+export function apiMovieContentLang(lng: string | undefined): "en" | "fr" {
+  return lng?.toLowerCase().startsWith("fr") ? "fr" : "en";
+}
+
+function isLikelyUnauthorizedError(e: unknown): boolean {
+  const status = (e as { status?: number })?.status;
+  if (status === 401) return true;
+  const msg = String((e as Error)?.message || "").toLowerCase();
+  return (
+    msg.includes("unauthorized") ||
+    msg.includes("non autorisé") ||
+    msg.includes("non autorise") ||
+    /\b401\b/.test(msg)
+  );
+}
 
 const getAuthHeaders = () => {
   try {
@@ -31,8 +48,14 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>;
   if (!("success" in json) || json.success !== true) {
     const err = (json as ApiError).error?.message || `Request failed (${res.status})`;
-    logger.error(err, { path, status: res.status });
-    throw new Error(err);
+    if (res.status === 401) {
+      logger.warn(err, { path, status: res.status });
+    } else {
+      logger.error(err, { path, status: res.status });
+    }
+    const error = new Error(err) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
   }
   return json.data;
 }
@@ -41,8 +64,7 @@ async function requestWithRefresh<T>(path: string, init?: RequestInit): Promise<
   try {
     return await requestJson<T>(path, init);
   } catch (e: any) {
-    // If unauthorized, attempt refresh once
-    if (String(e?.message || "").toLowerCase().includes("unauthorized")) {
+    if (isLikelyUnauthorizedError(e)) {
       const raw = localStorage.getItem("cinenoir-v2-storage");
       const refreshToken = raw ? JSON.parse(raw)?.state?.refreshToken : null;
       if (refreshToken) {
@@ -51,10 +73,10 @@ async function requestWithRefresh<T>(path: string, init?: RequestInit): Promise<
             method: "POST",
             body: JSON.stringify({ refreshToken }),
           });
-          // Persist new accessToken back into zustand storage shape
           const parsed = JSON.parse(raw!);
           parsed.state.accessToken = refreshed.accessToken;
           localStorage.setItem("cinenoir-v2-storage", JSON.stringify(parsed));
+          useStore.getState().setAuth({ accessToken: refreshed.accessToken });
           logger.warn("Token refreshed, retrying request", { path });
           return await requestJson<T>(path, init);
         } catch (refreshErr: any) {
@@ -72,12 +94,16 @@ export const api = {
     list: async (params: CatalogParams) => {
       const qs = new URLSearchParams();
       if (params.search) qs.set("q", params.search);
-      if (params.category && params.category !== "Tous") qs.set("category", params.category);
+      if (params.category && params.category !== "All") qs.set("category", params.category);
       if (params.minRating != null) qs.set("rating", String(params.minRating));
-      if (params.sort) qs.set("sort", params.sort);
+      if (params.sort) {
+        const sortApi = params.sort === "rating" ? "rating_desc" : params.sort;
+        qs.set("sort", sortApi);
+      }
       if (params.page) qs.set("page", String(params.page));
       const limit = Math.min(50, Math.max(1, Number(params.limit) || 12));
       qs.set("limit", String(limit));
+      if (params.lang === "fr" || params.lang === "en") qs.set("lang", params.lang);
 
       const data = await requestWithRefresh<{ data: Movie[]; total: number; totalPages: number }>(
         `/movies?${qs.toString()}`,
@@ -85,8 +111,9 @@ export const api = {
       );
       return data;
     },
-    get: async (id: string) => {
-      return await requestWithRefresh<Movie>(`/movies/${id}`, { method: "GET" });
+    get: async (id: string, lang?: "en" | "fr") => {
+      const qs = lang === "fr" || lang === "en" ? `?lang=${lang}` : "";
+      return await requestWithRefresh<Movie>(`/movies/${id}${qs}`, { method: "GET" });
     },
     create: async (movie: Partial<Movie>, posterFile?: File) => {
       // Admin-only - Use FormData for file upload
@@ -101,6 +128,9 @@ export const api = {
         formData.append("poster", posterFile);
       } else if (movie.posterUrl) {
         formData.append("posterUrl", movie.posterUrl);
+      }
+      if (movie.trailerUrl !== undefined && movie.trailerUrl !== null) {
+        formData.append("trailerUrl", String(movie.trailerUrl).trim());
       }
 
       const res = await fetch(`${API_URL}/movies`, {
@@ -129,6 +159,9 @@ export const api = {
         formData.append("poster", posterFile);
       } else if (movie.posterUrl) {
         formData.append("posterUrl", movie.posterUrl);
+      }
+      if (movie.trailerUrl !== undefined) {
+        formData.append("trailerUrl", movie.trailerUrl === null || movie.trailerUrl === "" ? "" : String(movie.trailerUrl).trim());
       }
 
       const res = await fetch(`${API_URL}/movies/${id}`, {
@@ -222,6 +255,17 @@ export const api = {
         headers: { ...getAuthHeaders() },
       });
       return { history: user.history };
+    },
+    recommendations: async (mood: RecommendationMoodKey, lang?: "en" | "fr", limit = 10) => {
+      const qs = new URLSearchParams();
+      qs.set("mood", mood);
+      if (lang === "fr" || lang === "en") qs.set("lang", lang);
+      if (Number.isFinite(limit) && limit >= 1 && limit <= 10) qs.set("limit", String(limit));
+      return await requestWithRefresh<PersonalizedRecommendations>(`/user/recommendations?${qs.toString()}`, {
+        method: "GET",
+        headers: { ...getAuthHeaders() },
+        cache: "no-store",
+      });
     }
   },
   categories: {
@@ -263,7 +307,14 @@ export const api = {
         totalHistoryItems: number;
         averageRating: number;
         recentUsers: Array<{ id: string; username: string; email: string; role: string; createdAt: string }>;
-        recentMovies: Array<{ id: string; title: string; year: number; ratingAvg: number; createdAt: string }>;
+        recentMovies: Array<{
+          id: string;
+          title: string;
+          year: number;
+          ratingAvg: number;
+          createdAt: string;
+          posterUrl: string | null;
+        }>;
         topRatedMovies: Array<{ id: string; title: string; ratingAvg: number; year: number; ratingsCount: number }>;
         categoryDistribution: Array<{ categoryName: string; movieCount: number }>;
         userActivity: Array<{ date: string; registrations: number; ratings: number; watchlistAdds: number }>;

@@ -29,6 +29,8 @@ describe("admin", () => {
       { expiresIn: "15m" }
     );
 
+    // Mock: no duplicate (title + year)
+    dbMock.execute.mockResolvedValueOnce([[], []]);
     // Mock: insert movie
     dbMock.execute.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
     // Mock: check/get category
@@ -67,5 +69,30 @@ describe("admin", () => {
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.id).toBe("m1");
+  });
+
+  test("POST /movies returns 409 when same title and year exists", async () => {
+    const jwt = require("jsonwebtoken");
+    const token = jwt.sign(
+      { sub: "u1", role: "ADMIN", email: "admin@x.com", username: "admin" },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    dbMock.execute.mockResolvedValueOnce([[{ id: "existing-id" }], []]);
+
+    const res = await request(app)
+      .post("/movies")
+      .set("Authorization", `Bearer ${token}`)
+      .field("title", "Inception")
+      .field("description", "D")
+      .field("year", "2010")
+      .field("duration", "2h")
+      .field("director", "Nolan")
+      .field("category", "Sci-Fi");
+
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error?.code).toBe("DUPLICATE_MOVIE");
   });
 });

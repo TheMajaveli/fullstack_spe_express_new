@@ -9,6 +9,11 @@ L’espace membre regroupe les fonctionnalités réservées aux utilisateurs con
 
 Affiche les statistiques (nombre de films notés, moyenne, films vus, taille de la watchlist) et les listes réelles (watchlist, historique) issues de l’API.
 
+L’espace compte contient aussi la partie **recommandations** :
+
+- **Bloc “Pour vous”** : sélection d’une **humeur** → liste de films adaptés (titres réels du catalogue).
+- **Bulle assistant** (chat) : accessible dans l’interface (hors admin), humeur → attente courte → **5 films**, avec un bouton pour afficher **d’autres titres**.
+
 ## Watchlist (liste à voir)
 
 - **Ajout** : `POST /user/watchlist/:movieId`
@@ -20,7 +25,7 @@ Côté front : boutons sur la page détail film et sur les cartes pour ajouter/r
 ## Notes (ratings)
 
 - **Envoi** : `POST /user/ratings/:movieId` avec body `{ ratingNumber, note? }` (ratingNumber typiquement 2–10, ou 1–5 étoiles converti).
-- **Affichage** : la note utilisateur et la note moyenne du film sont affichées sur la page détail ; le modal de notation est dans `frontend/components/RatingModal.tsx`.
+- **Affichage** : la note moyenne du film est affichée sur la page détail ; la **note de l’utilisateur** et son **commentaire** (si présent) sont visibles dans la section “Avis”. Le modal de notation est dans `frontend/components/RatingModal.tsx`.
 
 Après envoi, la moyenne du film est recalculée côté backend et le profil utilisateur (ratings) est mis à jour.
 
@@ -31,7 +36,9 @@ Après envoi, la moyenne du film est recalculée côté backend et le profil uti
 
 Sur la page détail film, un bouton « Marquer comme vu » appelle cette route puis met à jour le store.
 
+Sur le **catalogue**, si un film est présent dans l’historique du membre connecté, un badge **« Vu »** apparaît sur la carte du film.
+
 ## Données et API
 
 - Les routes utilisateur sont protégées par le middleware d’authentification.
-- Le profil complet (watchlist, ratings, history) est renvoyé par `GET /user/me` (ou équivalent selon le code) et stocké dans le store Zustand pour garder l’UI synchronisée.
+- Le profil complet (watchlist, ratings, history, et commentaires de notes) est renvoyé par `GET /user/me` (ou `GET /auth/me` selon les écrans) et stocké dans le store Zustand pour garder l’UI synchronisée.

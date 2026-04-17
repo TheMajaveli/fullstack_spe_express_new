@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useTranslation } from 'react-i18next';
 import { Modal } from './DesignSystem';
 import { Input, Button, useToast } from './UI';
 import { api } from '../services/api';
@@ -9,16 +10,15 @@ import { Movie } from '../types';
 import { getPosterUrl } from '../utils/constants';
 import { Upload, X } from 'lucide-react';
 
-const movieSchema = z.object({
-  title: z.string().min(1, 'Le titre est requis'),
-  description: z.string().min(1, 'La description est requise'),
-  year: z.number().min(1900).max(new Date().getFullYear() + 10),
-  duration: z.string().min(1, 'La durée est requise'),
-  director: z.string().min(1, 'Le réalisateur est requis'),
-  category: z.string().min(1, 'La catégorie est requise'),
-});
-
-type MovieFormData = z.infer<typeof movieSchema>;
+type MovieFormData = {
+  title: string;
+  description: string;
+  year: number;
+  duration: string;
+  director: string;
+  category: string;
+  trailerUrl?: string;
+};
 
 interface MovieFormModalProps {
   isOpen: boolean;
@@ -35,10 +35,33 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
   onSuccess,
   categories,
 }) => {
+  const { t } = useTranslation();
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
+
+  const movieSchema = useMemo(
+    () =>
+      z.object({
+        title: z.string().min(1, t('movieForm.titleRequired')),
+        description: z.string().min(1, t('movieForm.descriptionRequired')),
+        year: z
+          .number()
+          .min(1900, t('movieForm.yearMin'))
+          .max(new Date().getFullYear() + 10, t('movieForm.yearMax')),
+        duration: z.string().min(1, t('movieForm.durationRequired')),
+        director: z.string().min(1, t('movieForm.directorRequired')),
+        category: z.string().min(1, t('movieForm.categoryRequired')),
+        trailerUrl: z
+          .string()
+          .optional()
+          .refine((s) => !s?.trim() || /^https?:\/\//i.test(s.trim()), {
+            message: t('movieForm.trailerUrlInvalid'),
+          }),
+      }),
+    [t]
+  );
 
   const {
     register,
@@ -55,6 +78,7 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
       duration: '',
       director: '',
       category: '',
+      trailerUrl: '',
     },
   });
 
@@ -66,9 +90,11 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
       setValue('duration', movie.duration);
       setValue('director', movie.director);
       setValue('category', movie.category);
+      setValue('trailerUrl', movie.trailerUrl?.trim() || '');
       setPosterPreview(getPosterUrl(movie.posterUrl));
     } else {
       reset();
+      setValue('trailerUrl', '');
       setPosterFile(null);
       setPosterPreview('');
     }
@@ -89,34 +115,41 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
   const onSubmit = async (data: MovieFormData) => {
     setIsSubmitting(true);
     try {
+      const payload = {
+        ...data,
+        trailerUrl: data.trailerUrl?.trim() || '',
+      };
       if (movie) {
-        await api.movies.update(movie.id, data, posterFile || undefined);
+        await api.movies.update(movie.id, payload, posterFile || undefined);
       } else {
-        await api.movies.create(data, posterFile || undefined);
+        await api.movies.create(payload, posterFile || undefined);
       }
       onSuccess();
       onClose();
       reset();
       setPosterFile(null);
       setPosterPreview('');
-      toast(movie ? 'Film mis à jour avec succès' : 'Film créé avec succès', 'success');
+      toast(movie ? t('movieForm.toastUpdated') : t('movieForm.toastCreated'), 'success');
     } catch (error: any) {
-      toast(error.message || 'Échec de sauvegarde du film', 'error');
+      toast(error.message || t('movieForm.toastSaveError'), 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={movie ? 'Modifier le film' : 'Créer un nouveau film'}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={movie ? t('movieForm.modalEditTitle') : t('movieForm.modalCreateTitle')}
+    >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Poster Upload */}
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Affiche</label>
+          <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{t('movieForm.posterLabel')}</label>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             {posterPreview && (
               <div className="relative w-24 h-36 rounded overflow-hidden border border-zinc-800 shrink-0">
-                <img src={posterPreview} alt="Poster preview" className="w-full h-full object-cover" />
+                <img src={posterPreview} alt={t('movieForm.posterPreviewAlt')} className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => {
@@ -124,7 +157,7 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
                     setPosterPreview(movie ? getPosterUrl(movie.posterUrl) : '');
                   }}
                   className="absolute top-1 right-1 w-6 h-6 bg-black/80 rounded-full flex items-center justify-center text-white hover:bg-black"
-                  aria-label="Retirer l'affiche"
+                  aria-label={t('movieForm.removePosterAria')}
                 >
                   <X size={14} />
                 </button>
@@ -135,35 +168,30 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
                 <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
                   <Upload size={24} className="text-zinc-500 mb-2" />
                   <p className="text-xs text-zinc-500 font-medium text-center">
-                    {posterFile ? posterFile.name : 'Cliquer pour téléverser une affiche'}
+                    {posterFile ? posterFile.name : t('movieForm.uploadHint')}
                   </p>
                 </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                />
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
               </label>
             </div>
           </div>
         </div>
 
         <Input
-          label="Titre"
+          label={t('movieForm.titleLabel')}
           {...register('title')}
           error={errors.title?.message}
-          placeholder="Entrer le titre du film"
+          placeholder={t('movieForm.titlePlaceholder')}
         />
 
         <div>
           <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
-            Description
+            {t('movieForm.descriptionLabel')}
           </label>
           <textarea
             {...register('description')}
             className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-md py-2 px-3 focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent transition-all min-h-[100px]"
-            placeholder="Entrer la description du film"
+            placeholder={t('movieForm.descriptionPlaceholder')}
           />
           {errors.description && (
             <p className="text-[10px] text-red-500 font-medium mt-1">{errors.description.message}</p>
@@ -172,7 +200,7 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Année"
+            label={t('movieForm.yearLabel')}
             type="number"
             {...register('year', { valueAsNumber: true })}
             error={errors.year?.message}
@@ -180,29 +208,36 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
           />
 
           <Input
-            label="Durée"
+            label={t('movieForm.durationLabel')}
             {...register('duration')}
             error={errors.duration?.message}
-            placeholder="2h 30m"
+            placeholder={t('movieForm.durationPlaceholder')}
           />
         </div>
 
         <Input
-          label="Réalisateur"
+          label={t('movieForm.directorLabel')}
           {...register('director')}
           error={errors.director?.message}
-          placeholder="Nom du réalisateur"
+          placeholder={t('movieForm.directorPlaceholder')}
+        />
+
+        <Input
+          label={t('movieForm.trailerLabel')}
+          {...register('trailerUrl')}
+          error={errors.trailerUrl?.message}
+          placeholder={t('movieForm.trailerPlaceholder')}
         />
 
         <div>
           <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 block">
-            Catégorie
+            {t('movieForm.categoryLabel')}
           </label>
           <select
             {...register('category')}
             className="w-full bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-md py-2 px-3 focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-accent transition-all"
           >
-            <option value="">Sélectionner une catégorie</option>
+            <option value="">{t('movieForm.categoryPlaceholder')}</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.name}>
                 {cat.name}
@@ -216,10 +251,10 @@ export const MovieFormModal: React.FC<MovieFormModalProps> = ({
 
         <div className="flex gap-3 pt-4">
           <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-            Annuler
+            {t('common.cancel')}
           </Button>
           <Button type="submit" isLoading={isSubmitting} className="flex-1">
-            {movie ? 'Mettre à jour' : 'Créer'} le film
+            {movie ? t('movieForm.submitUpdate') : t('movieForm.submitCreate')}
           </Button>
         </div>
       </form>

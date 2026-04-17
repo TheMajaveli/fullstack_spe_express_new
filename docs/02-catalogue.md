@@ -14,19 +14,24 @@ Les paramètres sont **synchronisés avec l’URL** (source de vérité) :
 - `q` : recherche textuelle (titre)
 - `category` : catégorie (nom)
 - `rating` : note minimale (nombre)
-- `sort` : tri — `newest` | `rating` | `title`
+- `sort` : tri — `newest` | `oldest` | `rating` | `title`
 - `page` : numéro de page (mode pagination)
 - `limit` : nombre de films par page (1–50, défaut 12)
 - `view` : `infinite` pour le scroll infini, sinon pagination classique
 
-Exemple : `/movies?q=Matrix&category=Sci-Fi&sort=rating&page=1&limit=12`
+Exemple (route catalogue = `/`) : `/?q=Matrix&category=Sci-Fi&sort=rating&page=1&limit=12`
+
+Notes UX :
+
+- La **recherche principale** est dans la **navbar** (`frontend/components/Layout.tsx`) et met à jour `?q=`.
+- En bas du catalogue, la pagination affiche le **numéro de page** sous forme **Page X / Y** (quand le mode pagination est actif).
 
 ## Côté API
 
 - **Liste** : `GET /movies` — paramètres de requête validés par express-validator (`api/src/routes/movieRoutes.ts`), logique dans `api/src/services/movieService.ts` (liste avec count, pagination).
 - **Détail** : `GET /movies/:id` — un film par ID.
 
-Validation côté API : `limit` entre 1 et 50, `sort` dans `newest` | `rating` | `title`, etc.
+Validation côté API : `limit` entre 1 et 50, `sort` dans `newest` | `oldest` | `rating` | `title`, etc.
 
 ## Scroll infini
 
@@ -40,7 +45,7 @@ L’URL reflète le mode avec `?view=infinite` si le scroll infini est actif.
 ## Composants principaux
 
 - **CatalogPage** : hero « à la une », barre de filtres (catégories, recherche, tri, limit, mode pagination/infinite), grille de films, pagination ou sentinelle pour l’infinite scroll.
-- **PosterCard** (DesignSystem) : carte film avec poster, note, année, overlay au survol.
+- **PosterCard** (DesignSystem) : carte film avec poster, note, année, overlay au survol. Si l’utilisateur est connecté et a marqué un film comme vu, un badge **« Vu »** est affiché sur la carte.
 - **MovieDetailPage** : affichage détaillé + boutons watchlist, notation, « marquer comme vu ».
 
 ## Données

@@ -17,6 +17,14 @@ Au changement de langue, `document.documentElement.lang` est mis à jour et la p
 
 Les textes du catalogue (titres de sections, boutons, messages), du layout (navigation, footer, lien d’évitement), des toasts et des libellés d’accessibilité sont passés par `t()` pour être traduits.
 
+## Contenu des films (synopsis FR/EN)
+
+Les synopsis sont gérés côté API avec un paramètre de langue (ex. `?lang=fr`).
+
+- En base, les films peuvent avoir `description` (EN) et `descriptionFr` (FR).
+- Quand `lang=fr`, l’API renvoie **`descriptionFr` si présent**, sinon retombe sur `description`.
+- Côté frontend, la langue de contenu catalogue est envoyée via `apiMovieContentLang(i18n.language)` (ex. dans le catalogue, la fiche film et les recommandations).
+
 ## Sélecteur de langue
 
 Dans le header (`frontend/components/Layout.tsx`), deux boutons **FR** et **EN** permettent de changer la langue. L’état actif est indiqué visuellement et via `aria-pressed` pour l’accessibilité.

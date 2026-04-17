@@ -26,7 +26,8 @@ export default defineConfig({
   ],
 
   webServer: process.env.CI ? undefined : {
-    command: 'cd ../frontend && npm run dev',
+    // Start Vite on a dedicated e2e port to avoid local port drift.
+    command: 'cd ../frontend && npm run dev -- --port 5173 --strictPort',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
